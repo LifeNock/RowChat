@@ -1,1 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RowChat - Team Communication</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%235865f2'/><text x='50' y='70' text-anchor='middle' font-size='60'>⛵</text></svg>">
+  
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- CSS Files -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/themes.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+  
+  <!-- Loading Screen -->
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-boat">⛵</div>
+      <h2>RowChat</h2>
+      <div class="loading-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <p>Loading your workspace...</p>
+    </div>
+  </div>
 
+  <!-- Auth Screen -->
+  <div class="auth-container" id="authScreen">
+    <div class="auth-box">
+      <div class="auth-logo">⛵</div>
+      <h1>Welcome to RowChat</h1>
+      <p class="subtitle">Team communication made simple</p>
+      
+      <div id="authError" class="error-message" style="display: none;"></div>
+      
+      <!-- Login Form -->
+      <div id="loginForm">
+        <input type="text" id="loginUsername" placeholder="Username" autocomplete="username">
+        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+        <button class="btn-primary" onclick="login()">Log In</button>
+        <div class="divider">or</div>
+        <button class="btn-secondary" onclick="showRegister()">Create Account</button>
+      </div>
+      
+      <!-- Register Form -->
+      <div id="registerForm" style="display: none;">
+        <input type="text" id="registerUsername" placeholder="Username (min 3 characters)" autocomplete="username">
+        <input type="email" id="registerEmail" placeholder="Email (optional)" autocomplete="email">
+        <input type="password" id="registerPassword" placeholder="Password (min 6 characters)" autocomplete="new-password">
+        <input type="password" id="registerConfirm" placeholder="Confirm Password" autocomplete="new-password">
+        <button class="btn-primary" onclick="register()">Create Account</button>
+        <div class="divider">or</div>
+        <button class="btn-secondary" onclick="showLogin()">Back to Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Container -->
+  <div class="app-container" id="appContainer" style="display: none;">
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="workspace-name">
+          <span class="workspace-icon">⛵</span>
+          <span>RowChat</span>
+        </div>
+      </div>
+      
+      <!-- Navigation Tabs -->
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="rooms" onclick="switchTab('rooms')">
+          <span class="tab-icon">💬</span>
+          <span>Rooms</span>
+        </button>
+        <button class="nav-tab" data-tab="dms" onclick="switchTab('dms')">
+          <span class="tab-icon">📨</span>
+          <span>Direct Messages</span>
+        </button>
+        <button class="nav-tab" data-tab="friends" onclick="switchTab('friends')">
+          <span class="tab-icon">👥</span>
+          <span>Friends</span>
+          <span class="notification-badge" id="friendRequestBadge" style="display: none;">0</span>
+        </button>
+      </div>
+      
+      <!-- Rooms List -->
+      <div class="content-section active" id="roomsSection">
+        <div class="section-header">
+          <span>Rooms</span>
+          <button class="icon-btn" onclick="openCreateRoomModal()" title="Create Room">+</button>
+        </div>
+        <div id="roomsList" class="rooms-list"></div>
+      </div>
+      
+      <!-- DMs List -->
+      <div class="content-section" id="dmsSection">
+        <div class="section-header">
+          <span>Direct Messages</span>
+          <button class="icon-btn" onclick="openNewDMModal()" title="New DM">+</button>
+        </div>
+        <div id="dmsList" class="dms-list"></div>
+      </div>
+      
+      <!-- Friends List -->
+      <div class="content-section" id="friendsSection">
+        <div class="section-header">
+          <span>Friends</span>
+          <button class="icon-btn" onclick="openAddFriendModal()" title="Add Friend">+</button>
+        </div>
+        <div class="friends-tabs">
+          <button class="friend-tab active" onclick="showFriendTab('online')">Online</button>
+          <button class="friend-tab" onclick="showFriendTab('all')">All</button>
+          <button class="friend-tab" onclick="showFriendTab('pending')">Pending</button>
+        </div>
+        <div id="friendsList" class="friends-list"></div>
+      </div>
+      
+      <!-- User Section -->
+      <div class="user-section">
+        <div class="user-profile" onclick="toggleUserMenu()">
+          <div class="user-avatar" id="sidebarAvatar"></div>
+          <div class="user-info">
+            <div class="user-name" id="sidebarUsername"></div>
+            <div class="user-status">🟢 Online</div>
+          </div>
+          <button class="icon-btn">⚙️</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+      
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <div class="chat-header-left">
+          <h2 id="chatTitle">Select a room or DM</h2>
+          <span id="chatDescription" class="chat-description"></span>
+        </div>
+        <div class="chat-header-right">
+          <div class="online-users" id="onlineUsers">
+            <span class="online-dot"></span>
+            <span id="onlineCount">0 online</span>
+          </div>
+          <button class="icon-btn" onclick="openWhiteboardModal()" title="Start Whiteboard">🎨</button>
+          <button class="icon-btn" onclick="openYoutubeModal()" title="Watch YouTube Together">📺</button>
+          <button class="icon-btn" onclick="toggleRoomInfo()" title="Room Info">ℹ️</button>
+        </div>
+      </div>
+
+      <!-- Messages Container -->
+      <div class="messages-container" id="messagesContainer">
+        <div class="welcome-message">
+          <div class="welcome-icon">⛵</div>
+          <h3>Welcome to RowChat!</h3>
+          <p>Select a room or start a conversation to begin chatting.</p>
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-indicator" id="typingIndicator"></div>
+
+      <!-- Reply Bar -->
+      <div class="reply-bar" id="replyBar" style="display: none;">
+        <div class="reply-content">
+          <span class="reply-label">Replying to <strong id="replyToUser"></strong></span>
+          <span class="reply-text" id="replyToText"></span>
+        </div>
+        <button class="icon-btn" onclick="cancelReply()">×</button>
+      </div>
+
+      <!-- Edit Bar -->
+      <div class="edit-bar" id="editBar" style="display: none;">
+        <div class="edit-content">
+          <span class="edit-label">✏️ Editing message</span>
+        </div>
+        <button class="icon-btn" onclick="cancelEdit()">×</button>
+      </div>
+
+      <!-- File Preview Bar -->
+      <div class="file-preview-bar" id="filePreviewBar" style="display: none;">
+        <div class="file-preview" id="filePreview"></div>
+        <button class="icon-btn" onclick="cancelFile()">×</button>
+      </div>
+
+      <!-- Message Input -->
+      <div class="message-input-container">
+        <div class="message-input-wrapper">
+          <input type="file" id="fileInput" style="display: none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
+          <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload File">
+            📎
+          </button>
+          <input 
+            type="text" 
+            id="messageInput" 
+            placeholder="Type a message..." 
+            maxlength="2000"
+            autocomplete="off"
+          >
+          <span class="char-count" id="charCount"></span>
+          <button class="btn-send" id="sendBtn" onclick="sendMessage()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room Info Panel (slides in from right) -->
+    <div class="room-info-panel" id="roomInfoPanel">
+      <div class="room-info-header">
+        <h3>Room Info</h3>
+        <button class="icon-btn" onclick="toggleRoomInfo()">×</button>
+      </div>
+      <div class="room-info-content" id="roomInfoContent"></div>
+    </div>
+  </div>
+
+  <!-- User Settings Dropdown -->
+  <div class="dropdown-menu" id="userMenu" style="display: none;">
+    <div class="dropdown-item" onclick="openProfileModal()">
+      <span>👤</span> Edit Profile
+    </div>
+    <div class="dropdown-item" onclick="openThemeModal()">
+      <span>🎨</span> Themes & Appearance
+    </div>
+    <div class="dropdown-item" onclick="openSettingsModal()">
+      <span>⚙️</span> Settings
+    </div>
+    <div class="dropdown-divider"></div>
+    <div class="dropdown-item danger" onclick="logout()">
+      <span>🚪</span> Log Out
+    </div>
+  </div>
+
+  <!-- Modals -->
+  
+  <!-- Profile Modal -->
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Edit Profile</h2>
+        <button class="icon-btn" onclick="closeProfileModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="avatar-upload">
+          <div class="avatar-preview" id="profileAvatarPreview" onclick="document.getElementById('avatarInput').click()"></div>
+          <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+          <p class="hint">Click to change avatar</p>
+        </div>
+        <div class="form-group">
+          <label>Display Name</label>
+          <input type="text" id="profileDisplayName" placeholder="Your display name">
+        </div>
+        <div class="form-group">
+          <label>Bio</label>
+          <textarea id="profileBio" placeholder="Tell us about yourself" maxlength="200"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeProfileModal()">Cancel</button>
+        <button class="btn-primary" onclick="saveProfile()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme Modal -->
+  <div class="modal-overlay" id="themeModal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h2>🎨 Themes & Appearance</h2>
+        <button class="icon-btn" onclick="closeThemeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="theme-section">
+          <h3>Theme Presets</h3>
+          <div class="theme-grid" id="themePresets"></div>
+        </div>
+        <div class="theme-section">
+          <h3>Font Family</h3>
+          <div class="font-grid" id="fontGrid"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeThemeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Room Modal -->
+  <div class="modal-overlay" id="createRoomModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Create Room</h2>
+        <button class="icon-btn" onclick="closeCreateRoomModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Room Name</label>
+          <input type="text" id="roomName" placeholder="e.g. General Discussion">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="roomDescription" placeholder="What's this room about?"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeCreateRoomModal()">Cancel</button>
+        <button class="btn-primary" onclick="createRoom()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Friend Modal -->
+  <div class="modal-overlay" id="addFriendModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Add Friend</h2>
+        <button class="icon-btn" onclick="closeAddFriendModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="friendUsername" placeholder="Enter username">
+        </div>
+        <p class="hint">Enter the exact username of the person you want to add.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAddFriendModal()">Cancel</button>
+        <button class="btn-primary" onclick="sendFriendRequest()">Send Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New DM Modal -->
+  <div class="modal-overlay" id="newDMModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>New Direct Message</h2>
+        <button class="icon-btn" onclick="closeNewDMModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Select Friend</label>
+          <div id="dmFriendsList" class="dm-friends-list"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeNewDMModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Whiteboard Modal -->
+  <div class="modal-overlay" id="whiteboardModal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h2>🎨 Collaborative Whiteboard</h2>
+        <button class="icon-btn" onclick="closeWhiteboardModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <p>Start a whiteboard session and invite people to draw together!</p>
+        <canvas id="whiteboardCanvas" width="800" height="600"></canvas>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeWhiteboardModal()">Close</button>
+        <button class="btn-primary" onclick="sendWhiteboardInvite()">Invite to Whiteboard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- YouTube Modal -->
+  <div class="modal-overlay" id="youtubeModal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h2>📺 Watch YouTube Together</h2>
+        <button class="icon-btn" onclick="closeYoutubeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>YouTube Video URL or ID</label>
+          <input type="text" id="youtubeUrl" placeholder="https://youtube.com/watch?v=...">
+        </div>
+        <div id="youtubePlayer"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeYoutubeModal()">Close</button>
+        <button class="btn-primary" onclick="startYoutubeSession()">Start Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Modal -->
+  <div class="image-modal" id="imageModal" onclick="closeImageModal()">
+    <img id="modalImage" src="">
+  </div>
+
+  <!-- JavaScript Files -->
+  <script src="../config/supabase.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/rooms.js"></script>
+  <script src="js/dms.js"></script>
+  <script src="js/friends.js"></script>
+  <script src="js/media.js"></script>
+  <script src="js/themes.js"></script>
+  <script src="js/whiteboard.js"></script>
+  <script src="js/youtube.js"></script>
+
+</body>
+</html>
