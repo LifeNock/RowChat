@@ -1,10 +1,16 @@
 // ============================================
-// ROWCHAT - DIRECT MESSAGES
+// ROWCHAT - DIRECT MESSAGES (FIXED)
 // ============================================
+
+function getSupabase() {
+  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // Load DMs
 async function loadDMs() {
   try {
+    const supabase = getSupabase();
+    
     // Get DM rooms where user is a member
     const { data: memberships, error: memberError } = await supabase
       .from('room_members')
@@ -78,7 +84,9 @@ async function openDM(room, otherUser) {
   
   // Update UI
   document.querySelectorAll('.dm-item').forEach(item => item.classList.remove('active'));
-  event.target.closest('.dm-item')?.classList.add('active');
+  if (event && event.target) {
+    event.target.closest('.dm-item')?.classList.add('active');
+  }
   
   document.getElementById('chatTitle').textContent = otherUser.username;
   document.getElementById('chatDescription').textContent = 'Direct Message';
@@ -90,6 +98,8 @@ async function openDM(room, otherUser) {
 // Create DM
 async function createDM(friendId) {
   try {
+    const supabase = getSupabase();
+    
     // Check if DM already exists
     const { data: existingMemberships } = await supabase
       .from('room_members')
@@ -99,7 +109,7 @@ async function createDM(friendId) {
     for (const membership of existingMemberships || []) {
       const { data: roomMembers } = await supabase
         .from('room_members')
-        .select('user_id, rooms!inner(is_dm)')
+        .select('user_id')
         .eq('room_id', membership.room_id);
       
       if (roomMembers && roomMembers.length === 2) {
@@ -165,6 +175,8 @@ async function openNewDMModal() {
   
   // Load friends list
   try {
+    const supabase = getSupabase();
+    
     const { data: friendships, error } = await supabase
       .from('friendships')
       .select('*')
@@ -210,4 +222,4 @@ function closeNewDMModal() {
   document.getElementById('newDMModal').classList.remove('active');
 }
 
-console.log('DMs.js loaded');
+console.log('DMs.js loaded (FIXED)');
