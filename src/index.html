@@ -15,13 +15,12 @@
   <link rel="stylesheet" href="css/animations.css">
 </head>
 <body>
-
-
-  <!-- Debug -->
-<div id="debug" style="position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 99999;">
-    Checking...
-  </div>
   
+  <!-- Debug Box -->
+  <div id="debug" style="position: fixed; top: 10px; right: 10px; background: orange; color: white; padding: 10px; z-index: 99999; font-size: 12px; border-radius: 4px;">
+    Loading...
+  </div>
+
   <!-- Loading Screen -->
   <div id="loadingScreen" class="loading-screen">
     <div class="loading-content">
@@ -220,7 +219,7 @@
       </div>
     </div>
 
-    <!-- Room Info Panel (slides in from right) -->
+    <!-- Room Info Panel -->
     <div class="room-info-panel" id="roomInfoPanel">
       <div class="room-info-header">
         <h3>Room Info</h3>
@@ -374,7 +373,7 @@
       </div>
       <div class="modal-body">
         <p>Start a whiteboard session and invite people to draw together!</p>
-        <canvas id="whiteboardCanvas" width="800" height="600"></canvas>
+        <canvas id="whiteboardCanvas" width="800" height="600" style="border: 2px solid var(--border); border-radius: 8px; background: white; cursor: crosshair;"></canvas>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeWhiteboardModal()">Close</button>
@@ -409,8 +408,39 @@
     <img id="modalImage" src="">
   </div>
 
+  <!-- Supabase Configuration (INLINE) -->
+  <script>
+    console.log('Initializing Supabase...');
+    
+    const SUPABASE_URL = 'https://oulktlqdkjzrffheszgp.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91bGt0bHFka2p6cmZmaGVzemdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4NDczMjIsImV4cCI6MjA4MDQyMzMyMn0.OBd7uqt8jiKHdFdk6oIDjDQoerInW-tzqyVjJKlZ9DM';
+    
+    if (typeof window.supabase === 'undefined') {
+      document.getElementById('debug').textContent = 'ERROR: Supabase library not loaded!';
+      document.getElementById('debug').style.background = 'red';
+    } else {
+      try {
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true
+          }
+        });
+        
+        window.supabaseClient = supabase;
+        
+        document.getElementById('debug').textContent = 'Supabase OK! ✓';
+        document.getElementById('debug').style.background = 'green';
+        console.log('Supabase initialized successfully');
+      } catch (error) {
+        document.getElementById('debug').textContent = 'Supabase Init Error!';
+        document.getElementById('debug').style.background = 'red';
+        console.error('Supabase error:', error);
+      }
+    }
+  </script>
+
   <!-- JavaScript Files -->
-  <script src="../config/supabase.js"></script>
   <script src="js/app.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/chat.js"></script>
