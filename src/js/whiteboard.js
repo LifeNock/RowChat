@@ -1,11 +1,15 @@
 // ============================================
-// ROWCHAT - COLLABORATIVE WHITEBOARD
+// ROWCHAT - COLLABORATIVE WHITEBOARD (FIXED)
 // ============================================
 
 let whiteboardCanvas = null;
 let whiteboardCtx = null;
 let isDrawing = false;
 let currentWhiteboardSession = null;
+
+function getSupabase() {
+  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // Open Whiteboard Modal
 function openWhiteboardModal() {
@@ -51,6 +55,8 @@ function closeWhiteboardModal() {
 // Load Whiteboard Session
 async function loadWhiteboardSession() {
   try {
+    const supabase = getSupabase();
+    
     const { data, error } = await supabase
       .from('whiteboard_sessions')
       .select('*')
@@ -116,6 +122,7 @@ async function saveWhiteboardState() {
   if (!currentWhiteboardSession) return;
   
   try {
+    const supabase = getSupabase();
     const imageData = whiteboardCanvas.toDataURL();
     
     await supabase
@@ -137,6 +144,8 @@ async function sendWhiteboardInvite() {
   }
   
   try {
+    const supabase = getSupabase();
+    
     // Create or get session
     let session = currentWhiteboardSession;
     
@@ -182,4 +191,4 @@ function clearWhiteboard() {
   saveWhiteboardState();
 }
 
-console.log('Whiteboard.js loaded');
+console.log('Whiteboard.js loaded (FIXED)');
