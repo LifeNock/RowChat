@@ -1,10 +1,12 @@
 // ============================================
-// ROWCHAT - ROOMS
+// ROWCHAT - ROOMS (FIXED)
 // ============================================
 
 // Load Rooms
 async function loadRooms() {
   try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
     const { data, error } = await supabase
       .from('rooms')
       .select('*')
@@ -73,7 +75,9 @@ async function openRoom(room) {
   
   // Update UI
   document.querySelectorAll('.room-item').forEach(item => item.classList.remove('active'));
-  event.target.closest('.room-item')?.classList.add('active');
+  if (event && event.target) {
+    event.target.closest('.room-item')?.classList.add('active');
+  }
   
   document.getElementById('chatTitle').textContent = '# ' + room.name;
   document.getElementById('chatDescription').textContent = room.description || '';
@@ -88,6 +92,8 @@ async function openRoom(room) {
 // Update Online Users in Room
 async function updateOnlineUsersInRoom(roomId) {
   try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
     const { data } = await supabase
       .from('presence')
       .select('user_id')
@@ -103,6 +109,8 @@ async function updateOnlineUsersInRoom(roomId) {
 // Join Room
 async function joinRoom(roomId) {
   try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
     const { error } = await supabase
       .from('room_members')
       .insert([{
@@ -132,6 +140,8 @@ async function leaveRoom(roomId) {
   if (!confirm('Leave this room?')) return;
   
   try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
     const { error } = await supabase
       .from('room_members')
       .delete()
@@ -177,6 +187,8 @@ async function createRoom() {
   const name = document.getElementById('roomName').value.trim();
   const description = document.getElementById('roomDescription').value.trim();
   
+  console.log('Creating room:', { name, description });
+  
   if (!name) {
     showToast('Please enter a room name', 'warning');
     return;
@@ -188,6 +200,10 @@ async function createRoom() {
   }
   
   try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    console.log('Step 1: Creating room in database...');
+    
     // Create room
     const { data: room, error: roomError } = await supabase
       .from('rooms')
@@ -200,7 +216,21 @@ async function createRoom() {
       .select()
       .single();
     
-    if (roomError) throw roomError;
+    console.log('Room creation result:', { room, roomError });
+    
+    if (roomError) {
+      console.error('Room creation error details:', roomError);
+      showToast('Failed to create room: ' + roomError.message, 'error');
+      return;
+    }
+    
+    if (!room) {
+      console.error('No room data returned');
+      showToast('Failed to create room: No data returned', 'error');
+      return;
+    }
+    
+    console.log('Step 2: Adding creator as member...');
     
     // Auto-join creator
     const { error: memberError } = await supabase
@@ -211,17 +241,24 @@ async function createRoom() {
         role: 'owner'
       }]);
     
-    if (memberError) throw memberError;
+    console.log('Member creation result:', { memberError });
     
-    showToast('Room created!', 'success');
+    if (memberError) {
+      console.error('Member creation error:', memberError);
+      showToast('Room created but failed to join: ' + memberError.message, 'warning');
+    } else {
+      console.log('Room created and joined successfully!');
+      showToast('Room created!', 'success');
+    }
+    
     closeCreateRoomModal();
     
     // Reload rooms and open the new room
     await loadRooms();
     openRoom(room);
   } catch (error) {
-    console.error('Error creating room:', error);
-    showToast('Failed to create room', 'error');
+    console.error('Error creating room (exception):', error);
+    showToast('Failed to create room: ' + error.message, 'error');
   }
 }
 
@@ -230,6 +267,8 @@ async function deleteRoom(roomId) {
   if (!confirm('Delete this room? This cannot be undone!')) return;
   
   try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
     // Check if user is owner
     const { data: membership } = await supabase
       .from('room_members')
@@ -273,12 +312,11 @@ async function deleteRoom(roomId) {
 // Get Room Members
 async function getRoomMembers(roomId) {
   try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
     const { data, error } = await supabase
       .from('room_members')
-      .select(`
-        *,
-        users (*)
-      `)
+      .select('*')
       .eq('room_id', roomId);
     
     if (error) throw error;
@@ -289,4 +327,4 @@ async function getRoomMembers(roomId) {
   }
 }
 
-console.log('Rooms.js loaded');
+console.log('Rooms.js loaded (FIXED with debugging)');
