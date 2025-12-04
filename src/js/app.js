@@ -1,5 +1,5 @@
 // ============================================
-// ROWCHAT - MAIN APPLICATION (FIXED)
+// ROWCHAT - MAIN APPLICATION (REALTIME FIXED)
 // ============================================
 
 let currentUser = null;
@@ -192,50 +192,142 @@ async function updatePresence() {
 function subscribeToRealtimeUpdates() {
   const supabase = getSupabase();
   
-  // Messages
-  supabase
-    .channel('messages')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-      handleMessageUpdate(payload);
-    })
-    .subscribe();
+  console.log('Setting up realtime subscriptions...');
   
-  // Presence
-  supabase
-    .channel('presence')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'presence' }, (payload) => {
-      handlePresenceUpdate(payload);
-    })
-    .subscribe();
+  // Subscribe to messages table
+  const messagesChannel = supabase
+    .channel('public:messages')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages'
+      },
+      (payload) => {
+        console.log('New message received:', payload);
+        handleMessageInsert(payload.new);
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages'
+      },
+      (payload) => {
+        console.log('Message updated:', payload);
+        handleMessageUpdate(payload.new);
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'messages'
+      },
+      (payload) => {
+        console.log('Message deleted:', payload);
+        handleMessageDelete(payload.old);
+      }
+    )
+    .subscribe((status) => {
+      console.log('Messages subscription status:', status);
+    });
   
-  // Rooms
-  supabase
-    .channel('rooms')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, (payload) => {
-      loadRooms();
-    })
-    .subscribe();
+  // Subscribe to presence table
+  const presenceChannel = supabase
+    .channel('public:presence')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'presence'
+      },
+      (payload) => {
+        handlePresenceUpdate(payload);
+      }
+    )
+    .subscribe((status) => {
+      console.log('Presence subscription status:', status);
+    });
   
-  // Friendships
-  supabase
-    .channel('friendships')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, (payload) => {
-      loadFriends();
-    })
-    .subscribe();
+  // Subscribe to rooms table
+  const roomsChannel = supabase
+    .channel('public:rooms')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'rooms'
+      },
+      (payload) => {
+        console.log('Rooms updated:', payload);
+        loadRooms();
+      }
+    )
+    .subscribe((status) => {
+      console.log('Rooms subscription status:', status);
+    });
   
-  console.log('Subscribed to real-time updates');
+  // Subscribe to friendships table
+  const friendshipsChannel = supabase
+    .channel('public:friendships')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'friendships'
+      },
+      (payload) => {
+        console.log('Friendships updated:', payload);
+        loadFriends();
+      }
+    )
+    .subscribe((status) => {
+      console.log('Friendships subscription status:', status);
+    });
+  
+  console.log('All realtime subscriptions set up!');
+}
+
+// Handle Message Insert
+function handleMessageInsert(message) {
+  console.log('Processing new message:', message);
+  
+  // Check if message is for current room/DM
+  if (currentRoom && message.room_id === currentRoom.id) {
+    console.log('Message is for current room, adding to UI');
+    addMessageToUI(message);
+  } else if (currentDM && message.room_id === currentDM.id) {
+    console.log('Message is for current DM, adding to UI');
+    addMessageToUI(message);
+  } else {
+    console.log('Message is for different room, ignoring');
+  }
 }
 
 // Handle Message Update
-function handleMessageUpdate(payload) {
-  if (payload.eventType === 'INSERT') {
-    const message = payload.new;
-    if (currentRoom && message.room_id === currentRoom.id) {
-      addMessageToUI(message);
-    } else if (currentDM && message.room_id === currentDM.id) {
-      addMessageToUI(message);
-    }
+function handleMessageUpdate(message) {
+  const msgEl = document.getElementById(`msg-${message.id}`);
+  if (msgEl) {
+    // Remove old message
+    msgEl.remove();
+    // Add updated message
+    addMessageToUI(message);
+  }
+}
+
+// Handle Message Delete
+function handleMessageDelete(message) {
+  const msgEl = document.getElementById(`msg-${message.id}`);
+  if (msgEl) {
+    msgEl.remove();
   }
 }
 
@@ -244,6 +336,11 @@ function handlePresenceUpdate(payload) {
   if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
     const presence = payload.new;
     onlineUsers[presence.user_id] = presence;
+    
+    // Update online count if on current room
+    if (currentRoom) {
+      updateOnlineUsersInRoom(currentRoom.id);
+    }
   }
 }
 
@@ -362,4 +459,4 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-console.log('App.js loaded (FIXED)');
+console.log('App.js loaded (REALTIME FIXED)');
