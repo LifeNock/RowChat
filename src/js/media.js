@@ -1,8 +1,12 @@
 // ============================================
-// ROWCHAT - MEDIA & FILE UPLOADS
+// ROWCHAT - MEDIA & FILE UPLOADS (FIXED)
 // ============================================
 
 window.pendingFile = null;
+
+function getSupabase() {
+  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // File Input Handler
 document.getElementById('fileInput')?.addEventListener('change', (e) => {
@@ -78,6 +82,8 @@ function cancelFile() {
 // Upload File to Supabase
 async function uploadFile(file) {
   try {
+    const supabase = getSupabase();
+    
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
     
@@ -126,6 +132,8 @@ async function uploadAvatar(file) {
       showToast('Avatar too large. Maximum size is 2MB', 'error');
       return null;
     }
+    
+    const supabase = getSupabase();
     
     const fileExt = file.name.split('.').pop();
     const fileName = `avatar-${currentUser.id}-${Date.now()}.${fileExt}`;
@@ -225,15 +233,22 @@ async function saveProfile() {
   const displayName = document.getElementById('profileDisplayName').value.trim();
   const bio = document.getElementById('profileBio').value.trim();
   
+  console.log('Saving profile...', { displayName, bio });
+  
   try {
+    const supabase = getSupabase();
+    
     let avatarUrl = currentUser.avatar_url;
     
     // Upload avatar if changed
     if (window.pendingAvatar) {
+      console.log('Uploading new avatar...');
       avatarUrl = await uploadAvatar(window.pendingAvatar);
       if (!avatarUrl) return;
       window.pendingAvatar = null;
     }
+    
+    console.log('Updating user profile...');
     
     // Update user
     const { error } = await supabase
@@ -245,7 +260,10 @@ async function saveProfile() {
       })
       .eq('id', currentUser.id);
     
-    if (error) throw error;
+    if (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
     
     // Update current user
     currentUser.display_name = displayName || currentUser.username;
@@ -257,10 +275,12 @@ async function saveProfile() {
     updateUserUI();
     showToast('Profile updated!', 'success');
     closeProfileModal();
+    
+    console.log('Profile saved successfully!');
   } catch (error) {
     console.error('Error saving profile:', error);
-    showToast('Failed to save profile', 'error');
+    showToast('Failed to save profile: ' + error.message, 'error');
   }
 }
 
-console.log('Media.js loaded');
+console.log('Media.js loaded (FIXED)');
