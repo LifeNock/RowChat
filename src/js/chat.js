@@ -1,9 +1,14 @@
 // ============================================
-// ROWCHAT - CHAT MESSAGING
+// ROWCHAT - CHAT MESSAGING (FIXED)
 // ============================================
 
 let replyingTo = null;
 let editingMessage = null;
+
+// Get Supabase client
+function getSupabase() {
+  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // Add Message to UI
 function addMessageToUI(message) {
@@ -154,6 +159,8 @@ async function sendMessage() {
   sendBtn.disabled = true;
   
   try {
+    const supabase = getSupabase();
+    
     let messageData = {
       room_id: currentRoom ? currentRoom.id : currentDM.id,
       user_id: currentUser.id,
@@ -236,6 +243,8 @@ async function deleteMessage(messageId) {
   if (!confirm('Delete this message?')) return;
   
   try {
+    const supabase = getSupabase();
+    
     const { error } = await supabase
       .from('messages')
       .delete()
@@ -275,6 +284,8 @@ async function loadMessages(roomId) {
   container.innerHTML = '<div class="loading-shimmer" style="height: 100px; border-radius: 8px;"></div>';
   
   try {
+    const supabase = getSupabase();
+    
     const { data, error } = await supabase
       .from('messages')
       .select('*')
@@ -315,14 +326,14 @@ const messageInput = document.getElementById('messageInput');
 
 messageInput?.addEventListener('input', (e) => {
   const length = e.target.value.length;
-  const charCount = document.getElementById('charCount');
+  const counter = document.getElementById('charCount');
   
   if (length > 1800) {
-    charCount.textContent = `${length}/2000`;
-    charCount.classList.add('warning');
+    counter.textContent = `${length}/2000`;
+    counter.classList.add('warning');
   } else {
-    charCount.textContent = '';
-    charCount.classList.remove('warning');
+    counter.textContent = '';
+    counter.classList.remove('warning');
   }
   
   // Update typing status
@@ -344,6 +355,8 @@ async function updateTypingStatus(isTyping) {
   clearTimeout(typingTimeout);
   
   try {
+    const supabase = getSupabase();
+    
     await supabase
       .from('presence')
       .update({
@@ -373,4 +386,4 @@ function closeImageModal() {
   document.getElementById('imageModal').classList.remove('active');
 }
 
-console.log('Chat.js loaded');
+console.log('Chat.js loaded (FIXED)');
