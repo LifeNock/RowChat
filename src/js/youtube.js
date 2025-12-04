@@ -1,9 +1,13 @@
 // ============================================
-// ROWCHAT - YOUTUBE WATCH TOGETHER
+// ROWCHAT - YOUTUBE WATCH TOGETHER (FIXED)
 // ============================================
 
 let youtubePlayer = null;
 let currentYoutubeSession = null;
+
+function getSupabase() {
+  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
 
 // Open YouTube Modal
 function openYoutubeModal() {
@@ -32,6 +36,8 @@ function closeYoutubeModal() {
 // Load YouTube Session
 async function loadYoutubeSession() {
   try {
+    const supabase = getSupabase();
+    
     const { data, error } = await supabase
       .from('youtube_sessions')
       .select('*')
@@ -103,6 +109,8 @@ async function startYoutubeSession() {
   }
   
   try {
+    const supabase = getSupabase();
+    
     // Create session
     const { data, error } = await supabase
       .from('youtube_sessions')
@@ -149,6 +157,8 @@ async function endYoutubeSession() {
   if (!confirm('End this YouTube session?')) return;
   
   try {
+    const supabase = getSupabase();
+    
     await supabase
       .from('youtube_sessions')
       .update({ is_active: false })
@@ -191,4 +201,4 @@ function extractYoutubeId(url) {
   return null;
 }
 
-console.log('YouTube.js loaded');
+console.log('YouTube.js loaded (FIXED)');
