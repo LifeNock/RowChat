@@ -1,12 +1,18 @@
 // ============================================
-// ROWCHAT - FRIENDS SYSTEM
+// ROWCHAT - FRIENDS SYSTEM (FIXED)
 // ============================================
 
 let currentFriendTab = 'online';
 
+function getSupabase() {
+  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
 // Load Friends
 async function loadFriends() {
   try {
+    const supabase = getSupabase();
+    
     const { data: friendships, error } = await supabase
       .from('friendships')
       .select('*')
@@ -26,7 +32,6 @@ async function loadFriends() {
       );
     } else if (currentFriendTab === 'online') {
       filtered = friendships.filter(f => f.status === 'accepted');
-      // TODO: Filter by online status
     } else {
       filtered = friendships.filter(f => f.status === 'accepted');
     }
@@ -69,7 +74,6 @@ async function loadFriends() {
         `;
         
         friendItem.onclick = () => {
-          // Open context menu or DM
           createDM(friendId);
         };
       }
@@ -101,7 +105,9 @@ function showFriendTab(tab) {
   currentFriendTab = tab;
   
   document.querySelectorAll('.friend-tab').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
+  if (event && event.target) {
+    event.target.classList.add('active');
+  }
   
   loadFriends();
 }
@@ -132,6 +138,8 @@ async function sendFriendRequest() {
   }
   
   try {
+    const supabase = getSupabase();
+    
     // Find user by username
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -184,6 +192,8 @@ async function sendFriendRequest() {
 // Accept Friend Request
 async function acceptFriendRequest(friendshipId) {
   try {
+    const supabase = getSupabase();
+    
     const { error } = await supabase
       .from('friendships')
       .update({ status: 'accepted' })
@@ -202,6 +212,8 @@ async function acceptFriendRequest(friendshipId) {
 // Decline Friend Request
 async function declineFriendRequest(friendshipId) {
   try {
+    const supabase = getSupabase();
+    
     const { error } = await supabase
       .from('friendships')
       .delete()
@@ -222,6 +234,8 @@ async function removeFriend(friendshipId) {
   if (!confirm('Remove this friend?')) return;
   
   try {
+    const supabase = getSupabase();
+    
     const { error } = await supabase
       .from('friendships')
       .delete()
@@ -242,6 +256,8 @@ async function blockUser(userId) {
   if (!confirm('Block this user?')) return;
   
   try {
+    const supabase = getSupabase();
+    
     const { error } = await supabase
       .from('friendships')
       .update({ status: 'blocked' })
@@ -257,4 +273,4 @@ async function blockUser(userId) {
   }
 }
 
-console.log('Friends.js loaded');
+console.log('Friends.js loaded (FIXED)');
