@@ -2,6 +2,18 @@
 // ROWCHAT - AUTHENTICATION
 // ============================================
 
+// Debug check
+setTimeout(() => {
+  const debugDiv = document.getElementById('debug');
+  if (typeof supabase === 'undefined') {
+    debugDiv.textContent = 'ERROR: Supabase not loaded!';
+    debugDiv.style.background = 'red';
+  } else {
+    debugDiv.textContent = 'Supabase OK!';
+    debugDiv.style.background = 'green';
+  }
+}, 1000);
+
 // Show Login Form
 function showLogin() {
   document.getElementById('loginForm').style.display = 'block';
