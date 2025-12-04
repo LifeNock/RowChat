@@ -1,18 +1,6 @@
 // ============================================
-// ROWCHAT - AUTHENTICATION
+// ROWCHAT - AUTHENTICATION (FIXED)
 // ============================================
-
-// Debug check
-setTimeout(() => {
-  const debugDiv = document.getElementById('debug');
-  if (typeof supabase === 'undefined') {
-    debugDiv.textContent = 'ERROR: Supabase not loaded!';
-    debugDiv.style.background = 'red';
-  } else {
-    debugDiv.textContent = 'Supabase OK!';
-    debugDiv.style.background = 'green';
-  }
-}, 1000);
 
 // Show Login Form
 function showLogin() {
@@ -33,6 +21,7 @@ function showAuthError(message) {
   const errorEl = document.getElementById('authError');
   errorEl.textContent = message;
   errorEl.style.display = 'block';
+  console.error('Auth Error:', message);
 }
 
 // Hide Auth Error
@@ -61,10 +50,15 @@ async function login() {
     return;
   }
   
+  console.log('Attempting login for:', username);
   showLoading(true);
   
   try {
+    // Get the correct Supabase client
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
     const passwordHash = await hashPassword(password);
+    console.log('Password hashed, querying database...');
     
     const { data, error } = await supabase
       .from('users')
@@ -72,6 +66,8 @@ async function login() {
       .eq('username', username)
       .eq('password_hash', passwordHash)
       .single();
+    
+    console.log('Login query result:', { data, error });
     
     if (error || !data) {
       showAuthError('Invalid username or password');
@@ -82,10 +78,11 @@ async function login() {
     currentUser = data;
     localStorage.setItem('rowchat-user', JSON.stringify(data));
     
+    console.log('Login successful!');
     await initializeApp();
   } catch (error) {
     console.error('Login error:', error);
-    showAuthError('Login failed. Please try again.');
+    showAuthError('Login failed: ' + error.message);
   }
   
   showLoading(false);
@@ -99,6 +96,8 @@ async function register() {
   const email = document.getElementById('registerEmail').value.trim();
   const password = document.getElementById('registerPassword').value;
   const confirm = document.getElementById('registerConfirm').value;
+  
+  console.log('Registration attempt:', { username, email });
   
   // Validation
   if (!username || !password) {
@@ -124,12 +123,19 @@ async function register() {
   showLoading(true);
   
   try {
+    // Get the correct Supabase client
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    console.log('Checking if username exists...');
+    
     // Check if username exists
-    const { data: existing } = await supabase
+    const { data: existing, error: checkError } = await supabase
       .from('users')
       .select('id')
       .eq('username', username)
-      .single();
+      .maybeSingle();
+    
+    console.log('Username check result:', { existing, checkError });
     
     if (existing) {
       showAuthError('Username already taken');
@@ -139,6 +145,7 @@ async function register() {
     
     // Create user
     const passwordHash = await hashPassword(password);
+    console.log('Creating user...');
     
     const { data, error } = await supabase
       .from('users')
@@ -151,36 +158,61 @@ async function register() {
       .select()
       .single();
     
-    if (error) throw error;
+    console.log('User creation result:', { data, error });
+    
+    if (error) {
+      console.error('Registration error details:', error);
+      showAuthError('Registration failed: ' + error.message);
+      showLoading(false);
+      return;
+    }
     
     currentUser = data;
     localStorage.setItem('rowchat-user', JSON.stringify(data));
     
-    // Auto-join general room
-    await supabase
-      .from('room_members')
-      .insert([{
-        room_id: 1,
-        user_id: currentUser.id,
-        role: 'member'
-      }]);
+    console.log('User created successfully! Auto-joining general room...');
     
+    // Auto-join general room
+    try {
+      await supabase
+        .from('room_members')
+        .insert([{
+          room_id: 1,
+          user_id: currentUser.id,
+          role: 'member'
+        }]);
+      console.log('Joined general room');
+    } catch (roomError) {
+      console.error('Failed to join general room:', roomError);
+      // Don't fail registration if room join fails
+    }
+    
+    console.log('Registration complete! Initializing app...');
     await initializeApp();
   } catch (error) {
-    console.error('Register error:', error);
-    showAuthError('Registration failed. Please try again.');
+    console.error('Registration exception:', error);
+    showAuthError('Registration failed: ' + error.message);
   }
   
   showLoading(false);
 }
 
 // Handle Enter key on auth forms
-document.getElementById('loginPassword')?.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') login();
+document.addEventListener('DOMContentLoaded', () => {
+  const loginPassword = document.getElementById('loginPassword');
+  const registerConfirm = document.getElementById('registerConfirm');
+  
+  if (loginPassword) {
+    loginPassword.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') login();
+    });
+  }
+  
+  if (registerConfirm) {
+    registerConfirm.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') register();
+    });
+  }
 });
 
-document.getElementById('registerConfirm')?.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') register();
-});
-
-console.log('Auth.js loaded');
+console.log('Auth.js loaded with console debugging');
