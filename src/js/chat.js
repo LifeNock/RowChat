@@ -1,11 +1,12 @@
 // ============================================
-// ROWCHAT - CHAT MESSAGING (FIXED)
+// ROWCHAT - CHAT MESSAGING (WITH NEW MESSAGE BANNER)
 // ============================================
 
 let replyingTo = null;
 let editingMessage = null;
+let unreadCount = 0;
+let isAtBottom = true;
 
-// Get Supabase client
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
@@ -33,10 +34,10 @@ function addMessageToUI(message) {
   // Avatar
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
-  if (user.avatar_url) {
+  if (user && user.avatar_url) {
     avatar.innerHTML = `<img src="${user.avatar_url}" alt="${user.username}">`;
   } else {
-    avatar.textContent = (message.username || user.username).charAt(0).toUpperCase();
+    avatar.textContent = (message.username || (user ? user.username : 'U')).charAt(0).toUpperCase();
   }
   
   // Content wrapper
@@ -49,7 +50,7 @@ function addMessageToUI(message) {
   
   const username = document.createElement('span');
   username.className = 'message-username';
-  username.textContent = message.username || user.username;
+  username.textContent = message.username || (user ? user.username : 'Unknown');
   
   const timestamp = document.createElement('span');
   timestamp.className = 'message-timestamp';
@@ -111,8 +112,73 @@ function addMessageToUI(message) {
   
   container.appendChild(msgDiv);
   
-  // Scroll to bottom
+  // Check if user is at bottom before adding message
+  checkScrollPosition();
+  
+  // If at bottom or own message, scroll down
+  if (isAtBottom || isOwn) {
+    scrollToBottom();
+  } else {
+    // User is scrolled up, increment unread
+    if (!isOwn) {
+      unreadCount++;
+      showNewMessageBanner();
+    }
+  }
+}
+
+// Check Scroll Position
+function checkScrollPosition() {
+  const container = document.getElementById('messagesContainer');
+  const threshold = 100; // pixels from bottom
+  isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+}
+
+// Scroll to Bottom
+function scrollToBottom() {
+  const container = document.getElementById('messagesContainer');
   container.scrollTop = container.scrollHeight;
+  unreadCount = 0;
+  hideNewMessageBanner();
+}
+
+// Show New Message Banner
+function showNewMessageBanner() {
+  let banner = document.getElementById('newMessageBanner');
+  
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'newMessageBanner';
+    banner.style.cssText = `
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      z-index: 1000;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: slideInUp 0.3s ease;
+    `;
+    banner.onclick = scrollToBottom;
+    document.querySelector('.main-content').appendChild(banner);
+  }
+  
+  banner.textContent = `${unreadCount} new message${unreadCount > 1 ? 's' : ''}`;
+  banner.style.display = 'block';
+}
+
+// Hide New Message Banner
+function hideNewMessageBanner() {
+  const banner = document.getElementById('newMessageBanner');
+  if (banner) {
+    banner.style.display = 'none';
+  }
 }
 
 // Process Message Content
@@ -283,6 +349,10 @@ async function loadMessages(roomId) {
   const container = document.getElementById('messagesContainer');
   container.innerHTML = '<div class="loading-shimmer" style="height: 100px; border-radius: 8px;"></div>';
   
+  // Reset unread
+  unreadCount = 0;
+  hideNewMessageBanner();
+  
   try {
     const supabase = getSupabase();
     
@@ -347,6 +417,10 @@ messageInput?.addEventListener('keypress', (e) => {
   }
 });
 
+// Scroll listener
+const messagesContainer = document.getElementById('messagesContainer');
+messagesContainer?.addEventListener('scroll', checkScrollPosition);
+
 // Typing Status
 let typingTimeout;
 async function updateTypingStatus(isTyping) {
@@ -386,4 +460,4 @@ function closeImageModal() {
   document.getElementById('imageModal').classList.remove('active');
 }
 
-console.log('Chat.js loaded (FIXED)');
+console.log('Chat.js loaded (WITH NEW MESSAGE BANNER)');
