@@ -1,5 +1,5 @@
 // ============================================
-// ROWCHAT - FRIENDS SYSTEM (FIXED)
+// ROWCHAT - FRIENDS SYSTEM (FIXED USER NAMES)
 // ============================================
 
 let currentFriendTab = 'online';
@@ -41,9 +41,30 @@ async function loadFriends() {
       return;
     }
     
-    filtered.forEach(friendship => {
+    // Load all friend user data
+    for (const friendship of filtered) {
       const friendId = friendship.user_id === currentUser.id ? friendship.friend_id : friendship.user_id;
-      const friend = getUser(friendId);
+      
+      // Fetch friend user data if not in cache
+      let friend = usersCache[friendId];
+      if (!friend) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', friendId)
+          .single();
+        
+        if (userData) {
+          usersCache[friendId] = userData;
+          friend = userData;
+        }
+      }
+      
+      if (!friend) {
+        console.error('Could not load friend data for ID:', friendId);
+        continue;
+      }
+      
       const isOnline = onlineUsers[friendId] && onlineUsers[friendId].is_online;
       
       const friendItem = document.createElement('div');
@@ -79,7 +100,7 @@ async function loadFriends() {
       }
       
       friendsList.appendChild(friendItem);
-    });
+    }
     
     // Update pending badge
     const pendingCount = friendships.filter(f => 
@@ -273,4 +294,4 @@ async function blockUser(userId) {
   }
 }
 
-console.log('Friends.js loaded (FIXED)');
+console.log('Friends.js loaded (FIXED USER NAMES)');
