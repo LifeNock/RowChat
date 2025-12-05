@@ -1,5 +1,5 @@
 // ============================================
-// ROWCHAT - COLLABORATIVE WHITEBOARD (REAL-TIME)
+// ROWCHAT - COLLABORATIVE WHITEBOARD (SAFE VERSION)
 // ============================================
 
 let whiteboardCanvas = null;
@@ -31,12 +31,20 @@ function getSupabase() {
 
 // Open Whiteboard Modal
 function openWhiteboardModal() {
+  console.log('Opening whiteboard modal...');
+  
   if (!currentRoom) {
     showToast('Please select a room first', 'warning');
     return;
   }
   
   const modal = document.getElementById('whiteboardModal');
+  if (!modal) {
+    console.error('Whiteboard modal not found!');
+    showToast('Whiteboard modal not found in HTML', 'error');
+    return;
+  }
+  
   modal.classList.add('active');
   
   // Wait for modal to be visible
@@ -48,9 +56,12 @@ function openWhiteboardModal() {
 
 // Initialize Canvas
 function initializeCanvas() {
+  console.log('Initializing canvas...');
+  
   whiteboardCanvas = document.getElementById('whiteboardCanvas');
   if (!whiteboardCanvas) {
-    console.error('Canvas element not found');
+    console.error('Canvas element not found!');
+    showToast('Canvas element missing from HTML', 'error');
     return;
   }
   
@@ -88,7 +99,10 @@ function initializeCanvas() {
 // Render Color Picker
 function renderColorPicker() {
   const colorPickerDiv = document.getElementById('whiteboardColorPicker');
-  if (!colorPickerDiv) return;
+  if (!colorPickerDiv) {
+    console.error('Color picker div not found!');
+    return;
+  }
   
   colorPickerDiv.innerHTML = `
     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -141,6 +155,8 @@ function renderColorPicker() {
       </div>
     </div>
   `;
+  
+  console.log('Color picker rendered');
 }
 
 // Get Color Name
@@ -187,7 +203,10 @@ function toggleEraser() {
 
 // Close Whiteboard Modal
 function closeWhiteboardModal() {
-  document.getElementById('whiteboardModal').classList.remove('active');
+  const modal = document.getElementById('whiteboardModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
   
   if (whiteboardChannel) {
     whiteboardChannel.unsubscribe();
@@ -253,6 +272,15 @@ function subscribeToWhiteboardUpdates() {
     .on('broadcast', { event: 'draw' }, (payload) => {
       // Draw from other users
       drawRemoteLine(payload.payload);
+    })
+    .on('broadcast', { event: 'clear' }, () => {
+      // Clear from other users
+      if (whiteboardCtx) {
+        whiteboardCtx.fillStyle = '#1e1e1e';
+        whiteboardCtx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+        whiteboardCtx.globalCompositeOperation = 'source-over';
+        whiteboardCtx.strokeStyle = currentColor;
+      }
     })
     .subscribe((status) => {
       console.log('Whiteboard realtime status:', status);
@@ -473,4 +501,4 @@ async function clearWhiteboard() {
   showToast('Whiteboard cleared!', 'info');
 }
 
-console.log('Whiteboard.js loaded (REAL-TIME COLLABORATIVE)');
+console.log('Whiteboard.js loaded (SAFE VERSION WITH NULL CHECKS)');
