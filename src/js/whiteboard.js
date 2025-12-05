@@ -1,5 +1,5 @@
 // ============================================
-// ROWCHAT - COLLABORATIVE WHITEBOARD (WORKING)
+// ROWCHAT - COLLABORATIVE WHITEBOARD (REAL-TIME)
 // ============================================
 
 let whiteboardCanvas = null;
@@ -8,6 +8,22 @@ let isDrawing = false;
 let currentWhiteboardSession = null;
 let currentColor = '#ffffff';
 let currentLineWidth = 3;
+let isEraser = false;
+let whiteboardChannel = null;
+
+const COLORS = [
+  '#ffffff', // White
+  '#ff0000', // Red
+  '#ff7f00', // Orange
+  '#ffff00', // Yellow
+  '#00ff00', // Green
+  '#0000ff', // Blue
+  '#4b0082', // Indigo
+  '#9400d3', // Violet
+  '#ff1493', // Pink
+  '#00ffff', // Cyan
+  '#000000'  // Black
+];
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -63,12 +79,120 @@ function initializeCanvas() {
   whiteboardCanvas.addEventListener('touchmove', handleTouchMove);
   whiteboardCanvas.addEventListener('touchend', stopDrawing);
   
+  // Render color picker
+  renderColorPicker();
+  
   console.log('Canvas initialized successfully');
+}
+
+// Render Color Picker
+function renderColorPicker() {
+  const colorPickerDiv = document.getElementById('whiteboardColorPicker');
+  if (!colorPickerDiv) return;
+  
+  colorPickerDiv.innerHTML = `
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <div style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-right: 4px;">Tools:</div>
+      ${COLORS.map(color => `
+        <div 
+          class="color-option ${color === currentColor && !isEraser ? 'active' : ''}" 
+          style="
+            width: 32px; 
+            height: 32px; 
+            background: ${color}; 
+            border: 2px solid ${color === currentColor && !isEraser ? 'var(--accent)' : 'var(--bg-tertiary)'}; 
+            border-radius: 6px; 
+            cursor: pointer;
+            transition: all 0.2s;
+            ${color === '#ffffff' || color === '#ffff00' || color === '#00ffff' ? 'box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);' : ''}
+          "
+          onclick="selectWhiteboardColor('${color}')"
+          title="${getColorName(color)}"
+        ></div>
+      `).join('')}
+      <div 
+        class="eraser-btn ${isEraser ? 'active' : ''}" 
+        style="
+          width: 32px; 
+          height: 32px; 
+          background: var(--bg-tertiary); 
+          border: 2px solid ${isEraser ? 'var(--accent)' : 'var(--bg-tertiary)'}; 
+          border-radius: 6px; 
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          transition: all 0.2s;
+        "
+        onclick="toggleEraser()"
+        title="Eraser"
+      >🧹</div>
+      <div style="margin-left: 8px; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 13px; color: var(--text-secondary);">Size:</span>
+        <input 
+          type="range" 
+          min="1" 
+          max="20" 
+          value="${currentLineWidth}" 
+          onchange="changeLineWidth(this.value)"
+          style="width: 100px;"
+        >
+      </div>
+    </div>
+  `;
+}
+
+// Get Color Name
+function getColorName(color) {
+  const names = {
+    '#ffffff': 'White',
+    '#ff0000': 'Red',
+    '#ff7f00': 'Orange',
+    '#ffff00': 'Yellow',
+    '#00ff00': 'Green',
+    '#0000ff': 'Blue',
+    '#4b0082': 'Indigo',
+    '#9400d3': 'Violet',
+    '#ff1493': 'Pink',
+    '#00ffff': 'Cyan',
+    '#000000': 'Black'
+  };
+  return names[color] || 'Color';
+}
+
+// Select Color
+function selectWhiteboardColor(color) {
+  currentColor = color;
+  isEraser = false;
+  whiteboardCtx.strokeStyle = color;
+  whiteboardCtx.globalCompositeOperation = 'source-over';
+  renderColorPicker();
+}
+
+// Toggle Eraser
+function toggleEraser() {
+  isEraser = !isEraser;
+  
+  if (isEraser) {
+    whiteboardCtx.globalCompositeOperation = 'destination-out';
+    whiteboardCtx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    whiteboardCtx.globalCompositeOperation = 'source-over';
+    whiteboardCtx.strokeStyle = currentColor;
+  }
+  
+  renderColorPicker();
 }
 
 // Close Whiteboard Modal
 function closeWhiteboardModal() {
   document.getElementById('whiteboardModal').classList.remove('active');
+  
+  if (whiteboardChannel) {
+    whiteboardChannel.unsubscribe();
+    whiteboardChannel = null;
+  }
   
   if (whiteboardCanvas) {
     whiteboardCanvas.removeEventListener('mousedown', startDrawing);
@@ -110,9 +234,77 @@ async function loadWhiteboardSession() {
       };
       img.src = data.canvas_data.image;
     }
+    
+    // Subscribe to real-time drawing
+    subscribeToWhiteboardUpdates();
   } catch (error) {
     console.error('Error loading whiteboard session:', error);
   }
+}
+
+// Subscribe to Whiteboard Updates
+function subscribeToWhiteboardUpdates() {
+  if (!currentWhiteboardSession) return;
+  
+  const supabase = getSupabase();
+  
+  whiteboardChannel = supabase
+    .channel(`whiteboard-${currentWhiteboardSession.id}`)
+    .on('broadcast', { event: 'draw' }, (payload) => {
+      // Draw from other users
+      drawRemoteLine(payload.payload);
+    })
+    .subscribe((status) => {
+      console.log('Whiteboard realtime status:', status);
+    });
+  
+  console.log('Subscribed to whiteboard updates');
+}
+
+// Draw Remote Line
+function drawRemoteLine(data) {
+  const { x1, y1, x2, y2, color, lineWidth, isEraser } = data;
+  
+  whiteboardCtx.save();
+  
+  if (isEraser) {
+    whiteboardCtx.globalCompositeOperation = 'destination-out';
+    whiteboardCtx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    whiteboardCtx.globalCompositeOperation = 'source-over';
+    whiteboardCtx.strokeStyle = color;
+  }
+  
+  whiteboardCtx.lineWidth = lineWidth;
+  whiteboardCtx.lineCap = 'round';
+  whiteboardCtx.lineJoin = 'round';
+  
+  whiteboardCtx.beginPath();
+  whiteboardCtx.moveTo(x1, y1);
+  whiteboardCtx.lineTo(x2, y2);
+  whiteboardCtx.stroke();
+  
+  whiteboardCtx.restore();
+}
+
+// Broadcast Drawing
+function broadcastDrawing(x1, y1, x2, y2) {
+  if (!whiteboardChannel) return;
+  
+  whiteboardChannel.send({
+    type: 'broadcast',
+    event: 'draw',
+    payload: {
+      x1,
+      y1,
+      x2,
+      y2,
+      color: currentColor,
+      lineWidth: currentLineWidth,
+      isEraser: isEraser,
+      userId: currentUser.id
+    }
+  });
 }
 
 // Start Drawing
@@ -124,6 +316,10 @@ function startDrawing(e) {
   
   whiteboardCtx.beginPath();
   whiteboardCtx.moveTo(x, y);
+  
+  // Store last position
+  whiteboardCanvas.lastX = x;
+  whiteboardCanvas.lastY = y;
 }
 
 // Draw
@@ -136,12 +332,22 @@ function draw(e) {
   
   whiteboardCtx.lineTo(x, y);
   whiteboardCtx.stroke();
+  
+  // Broadcast to other users
+  if (whiteboardCanvas.lastX !== undefined) {
+    broadcastDrawing(whiteboardCanvas.lastX, whiteboardCanvas.lastY, x, y);
+  }
+  
+  whiteboardCanvas.lastX = x;
+  whiteboardCanvas.lastY = y;
 }
 
 // Stop Drawing
 function stopDrawing() {
   if (isDrawing) {
     isDrawing = false;
+    whiteboardCanvas.lastX = undefined;
+    whiteboardCanvas.lastY = undefined;
     saveWhiteboardState();
   }
 }
@@ -213,6 +419,9 @@ async function sendWhiteboardInvite() {
       if (error) throw error;
       session = data;
       currentWhiteboardSession = session;
+      
+      // Subscribe to updates
+      subscribeToWhiteboardUpdates();
     }
     
     // Send system message
@@ -233,26 +442,35 @@ async function sendWhiteboardInvite() {
   }
 }
 
-// Change Color
-function changeWhiteboardColor(color) {
-  currentColor = color;
-  whiteboardCtx.strokeStyle = color;
-}
-
 // Change Line Width
 function changeLineWidth(width) {
-  currentLineWidth = width;
-  whiteboardCtx.lineWidth = width;
+  currentLineWidth = parseInt(width);
+  whiteboardCtx.lineWidth = currentLineWidth;
 }
 
 // Clear Whiteboard
-function clearWhiteboard() {
-  if (!confirm('Clear the whiteboard?')) return;
+async function clearWhiteboard() {
+  if (!confirm('Clear the whiteboard for everyone?')) return;
   
   whiteboardCtx.fillStyle = '#1e1e1e';
   whiteboardCtx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
-  whiteboardCtx.fillStyle = currentColor;
-  saveWhiteboardState();
+  
+  // Reset composite operation
+  whiteboardCtx.globalCompositeOperation = 'source-over';
+  whiteboardCtx.strokeStyle = currentColor;
+  
+  await saveWhiteboardState();
+  
+  // Broadcast clear to everyone
+  if (whiteboardChannel) {
+    whiteboardChannel.send({
+      type: 'broadcast',
+      event: 'clear',
+      payload: { userId: currentUser.id }
+    });
+  }
+  
+  showToast('Whiteboard cleared!', 'info');
 }
 
-console.log('Whiteboard.js loaded (WORKING VERSION)');
+console.log('Whiteboard.js loaded (REAL-TIME COLLABORATIVE)');
