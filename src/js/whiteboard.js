@@ -1,11 +1,13 @@
 // ============================================
-// ROWCHAT - COLLABORATIVE WHITEBOARD (FIXED)
+// ROWCHAT - COLLABORATIVE WHITEBOARD (WORKING)
 // ============================================
 
 let whiteboardCanvas = null;
 let whiteboardCtx = null;
 let isDrawing = false;
 let currentWhiteboardSession = null;
+let currentColor = '#ffffff';
+let currentLineWidth = 3;
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -21,23 +23,47 @@ function openWhiteboardModal() {
   const modal = document.getElementById('whiteboardModal');
   modal.classList.add('active');
   
-  // Initialize canvas
+  // Wait for modal to be visible
+  setTimeout(() => {
+    initializeCanvas();
+    loadWhiteboardSession();
+  }, 100);
+}
+
+// Initialize Canvas
+function initializeCanvas() {
   whiteboardCanvas = document.getElementById('whiteboardCanvas');
+  if (!whiteboardCanvas) {
+    console.error('Canvas element not found');
+    return;
+  }
+  
   whiteboardCtx = whiteboardCanvas.getContext('2d');
   
-  // Set up canvas
-  whiteboardCtx.strokeStyle = '#ffffff';
-  whiteboardCtx.lineWidth = 2;
+  // Set canvas size
+  whiteboardCanvas.width = 800;
+  whiteboardCanvas.height = 600;
+  
+  // Set up canvas style
+  whiteboardCtx.fillStyle = '#1e1e1e';
+  whiteboardCtx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+  whiteboardCtx.strokeStyle = currentColor;
+  whiteboardCtx.lineWidth = currentLineWidth;
   whiteboardCtx.lineCap = 'round';
+  whiteboardCtx.lineJoin = 'round';
   
   // Add drawing listeners
   whiteboardCanvas.addEventListener('mousedown', startDrawing);
   whiteboardCanvas.addEventListener('mousemove', draw);
   whiteboardCanvas.addEventListener('mouseup', stopDrawing);
-  whiteboardCanvas.addEventListener('mouseout', stopDrawing);
+  whiteboardCanvas.addEventListener('mouseleave', stopDrawing);
   
-  // Check if there's an active session
-  loadWhiteboardSession();
+  // Touch support
+  whiteboardCanvas.addEventListener('touchstart', handleTouchStart);
+  whiteboardCanvas.addEventListener('touchmove', handleTouchMove);
+  whiteboardCanvas.addEventListener('touchend', stopDrawing);
+  
+  console.log('Canvas initialized successfully');
 }
 
 // Close Whiteboard Modal
@@ -48,7 +74,10 @@ function closeWhiteboardModal() {
     whiteboardCanvas.removeEventListener('mousedown', startDrawing);
     whiteboardCanvas.removeEventListener('mousemove', draw);
     whiteboardCanvas.removeEventListener('mouseup', stopDrawing);
-    whiteboardCanvas.removeEventListener('mouseout', stopDrawing);
+    whiteboardCanvas.removeEventListener('mouseleave', stopDrawing);
+    whiteboardCanvas.removeEventListener('touchstart', handleTouchStart);
+    whiteboardCanvas.removeEventListener('touchmove', handleTouchMove);
+    whiteboardCanvas.removeEventListener('touchend', stopDrawing);
   }
 }
 
@@ -117,6 +146,27 @@ function stopDrawing() {
   }
 }
 
+// Touch Handlers
+function handleTouchStart(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const mouseEvent = new MouseEvent('mousedown', {
+    clientX: touch.clientX,
+    clientY: touch.clientY
+  });
+  whiteboardCanvas.dispatchEvent(mouseEvent);
+}
+
+function handleTouchMove(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const mouseEvent = new MouseEvent('mousemove', {
+    clientX: touch.clientX,
+    clientY: touch.clientY
+  });
+  whiteboardCanvas.dispatchEvent(mouseEvent);
+}
+
 // Save Whiteboard State
 async function saveWhiteboardState() {
   if (!currentWhiteboardSession) return;
@@ -183,12 +233,26 @@ async function sendWhiteboardInvite() {
   }
 }
 
+// Change Color
+function changeWhiteboardColor(color) {
+  currentColor = color;
+  whiteboardCtx.strokeStyle = color;
+}
+
+// Change Line Width
+function changeLineWidth(width) {
+  currentLineWidth = width;
+  whiteboardCtx.lineWidth = width;
+}
+
 // Clear Whiteboard
 function clearWhiteboard() {
   if (!confirm('Clear the whiteboard?')) return;
   
-  whiteboardCtx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+  whiteboardCtx.fillStyle = '#1e1e1e';
+  whiteboardCtx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+  whiteboardCtx.fillStyle = currentColor;
   saveWhiteboardState();
 }
 
-console.log('Whiteboard.js loaded (FIXED)');
+console.log('Whiteboard.js loaded (WORKING VERSION)');
