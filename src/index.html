@@ -361,7 +361,7 @@
     </div>
   </div>
 
-  <!-- Whiteboard Modal -->
+ <!-- Whiteboard Modal - COMPLETE VERSION -->
 <div id="whiteboardModal" class="modal">
   <div class="modal-content" style="width: 900px; max-width: 95vw;">
     <div class="modal-header">
@@ -369,52 +369,24 @@
       <span class="close-btn" onclick="closeWhiteboardModal()">&times;</span>
     </div>
     <div class="modal-body">
-      <!-- Color Picker & Tools -->
-      <div id="whiteboardColorPicker" style="
-        background: var(--bg-secondary); 
-        padding: 12px; 
-        border-radius: 8px; 
-        margin-bottom: 12px;
-      "></div>
+      <!-- Color Picker & Tools - THIS DIV IS REQUIRED -->
+      <div id="whiteboardColorPicker" style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+        <!-- Color picker will be rendered here by JavaScript -->
+      </div>
       
-      <!-- Canvas -->
-      <div style="
-        background: #1e1e1e; 
-        border-radius: 8px; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center;
-        overflow: hidden;
-      ">
-        <canvas 
-          id="whiteboardCanvas" 
-          style="
-            border-radius: 8px; 
-            cursor: crosshair;
-            display: block;
-          "
-        ></canvas>
+      <!-- Canvas Container -->
+      <div style="background: #1e1e1e; border-radius: 8px; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+        <canvas id="whiteboardCanvas" style="border-radius: 8px; cursor: crosshair; display: block;"></canvas>
       </div>
       
       <!-- Controls -->
-      <div style="
-        margin-top: 12px; 
-        display: flex; 
-        gap: 8px; 
-        justify-content: space-between;
-        align-items: center;
-      ">
-        <button class="btn-secondary" onclick="clearWhiteboard()">
-          🗑️ Clear Canvas
-        </button>
-        <button class="btn-primary" onclick="sendWhiteboardInvite()">
-          📨 Send Invite
-        </button>
+      <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: space-between; align-items: center;">
+        <button class="btn-secondary" onclick="clearWhiteboard()">🗑️ Clear Canvas</button>
+        <button class="btn-primary" onclick="sendWhiteboardInvite()">📨 Send Invite</button>
       </div>
     </div>
   </div>
 </div>
-
   <!-- YouTube Modal -->
   <div class="modal-overlay" id="youtubeModal">
     <div class="modal modal-large">
