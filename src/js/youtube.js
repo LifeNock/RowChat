@@ -1,9 +1,11 @@
 // ============================================
-// ROWCHAT - YOUTUBE WATCH TOGETHER (FIXED)
+// ROWCHAT - YOUTUBE SYNC PLAYER (ADVANCED)
 // ============================================
 
 let youtubePlayer = null;
 let currentYoutubeSession = null;
+let isHost = false;
+let syncInterval = null;
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -27,8 +29,12 @@ function openYoutubeModal() {
 function closeYoutubeModal() {
   document.getElementById('youtubeModal').classList.remove('active');
   
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
+  }
+  
   if (youtubePlayer) {
-    youtubePlayer.destroy();
     youtubePlayer = null;
   }
 }
@@ -53,7 +59,14 @@ async function loadYoutubeSession() {
     }
     
     currentYoutubeSession = data;
+    isHost = data.created_by === currentUser.id;
+    
     loadYoutubePlayer(data.video_id);
+    
+    // Start sync if not host
+    if (!isHost) {
+      startSyncListener();
+    }
   } catch (error) {
     console.error('Error loading YouTube session:', error);
   }
@@ -63,18 +76,139 @@ async function loadYoutubeSession() {
 function loadYoutubePlayer(videoId) {
   const playerDiv = document.getElementById('youtubePlayer');
   
-  // Create iframe
+  // Create custom video player
   playerDiv.innerHTML = `
-    <iframe 
-      width="100%" 
-      height="400" 
-      src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" 
-      frameborder="0" 
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-      allowfullscreen
-      style="border-radius: 8px; margin-top: 16px;">
-    </iframe>
+    <div class="custom-youtube-player">
+      <iframe 
+        id="ytFrame"
+        width="100%" 
+        height="450" 
+        src="https://www.youtube.com/embed/${videoId}?enablejsapi=1&controls=${isHost ? 1 : 0}&modestbranding=1" 
+        frameborder="0" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        allowfullscreen
+        style="border-radius: 8px;">
+      </iframe>
+      <div class="player-info" style="margin-top: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="font-size: 24px;">📺</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; color: var(--text-primary);">
+              ${isHost ? '🎬 You are the host' : '👥 Watching with group'}
+            </div>
+            <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
+              ${isHost ? 'You control playback for everyone' : 'Only the host can control playback'}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
+  
+  // Initialize YouTube API
+  if (isHost) {
+    initializeHostControls();
+  }
+}
+
+// Initialize Host Controls
+function initializeHostControls() {
+  if (!window.YT) {
+    // Load YouTube API
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    
+    window.onYouTubeIframeAPIReady = () => {
+      createYouTubePlayer();
+    };
+  } else {
+    createYouTubePlayer();
+  }
+}
+
+// Create YouTube Player
+function createYouTubePlayer() {
+  youtubePlayer = new YT.Player('ytFrame', {
+    events: {
+      'onStateChange': onPlayerStateChange
+    }
+  });
+}
+
+// On Player State Change
+async function onPlayerStateChange(event) {
+  if (!isHost) return;
+  
+  const supabase = getSupabase();
+  
+  // Update session based on state
+  const state = event.data;
+  const currentTime = youtubePlayer.getCurrentTime();
+  
+  let isPlaying = false;
+  if (state === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+  }
+  
+  try {
+    await supabase
+      .from('youtube_sessions')
+      .update({
+        is_playing: isPlaying,
+        canvas_data: { currentTime: currentTime }
+      })
+      .eq('id', currentYoutubeSession.id);
+  } catch (error) {
+    console.error('Error updating YouTube state:', error);
+  }
+}
+
+// Start Sync Listener (for non-hosts)
+function startSyncListener() {
+  const supabase = getSupabase();
+  
+  // Subscribe to session updates
+  supabase
+    .channel(`youtube-session-${currentYoutubeSession.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'youtube_sessions',
+        filter: `id=eq.${currentYoutubeSession.id}`
+      },
+      (payload) => {
+        syncPlayer(payload.new);
+      }
+    )
+    .subscribe();
+  
+  console.log('Started YouTube sync listener');
+}
+
+// Sync Player (for non-hosts)
+function syncPlayer(sessionData) {
+  const iframe = document.getElementById('ytFrame');
+  if (!iframe) return;
+  
+  // Send postMessage to iframe to control playback
+  const command = sessionData.is_playing ? 'playVideo' : 'pauseVideo';
+  iframe.contentWindow.postMessage(JSON.stringify({
+    event: 'command',
+    func: command
+  }), '*');
+  
+  // Seek to correct time
+  if (sessionData.canvas_data && sessionData.canvas_data.currentTime) {
+    iframe.contentWindow.postMessage(JSON.stringify({
+      event: 'command',
+      func: 'seekTo',
+      args: [sessionData.canvas_data.currentTime, true]
+    }), '*');
+  }
 }
 
 // Start YouTube Session
@@ -87,23 +221,9 @@ async function startYoutubeSession() {
   }
   
   // Extract video ID
-  let videoId = input;
+  let videoId = extractYoutubeId(input);
   
-  // Try to extract from URL
-  const urlPatterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/
-  ];
-  
-  for (const pattern of urlPatterns) {
-    const match = input.match(pattern);
-    if (match) {
-      videoId = match[1];
-      break;
-    }
-  }
-  
-  if (videoId.length !== 11) {
+  if (!videoId || videoId.length !== 11) {
     showToast('Invalid YouTube URL or video ID', 'error');
     return;
   }
@@ -127,6 +247,7 @@ async function startYoutubeSession() {
     if (error) throw error;
     
     currentYoutubeSession = data;
+    isHost = true;
     
     // Load player
     loadYoutubePlayer(videoId);
@@ -154,6 +275,11 @@ async function startYoutubeSession() {
 async function endYoutubeSession() {
   if (!currentYoutubeSession) return;
   
+  if (!isHost) {
+    showToast('Only the host can end the session', 'error');
+    return;
+  }
+  
   if (!confirm('End this YouTube session?')) return;
   
   try {
@@ -165,10 +291,11 @@ async function endYoutubeSession() {
       .eq('id', currentYoutubeSession.id);
     
     currentYoutubeSession = null;
+    isHost = false;
     
-    if (youtubePlayer) {
-      youtubePlayer.destroy();
-      youtubePlayer = null;
+    if (syncInterval) {
+      clearInterval(syncInterval);
+      syncInterval = null;
     }
     
     document.getElementById('youtubePlayer').innerHTML = '';
@@ -201,4 +328,4 @@ function extractYoutubeId(url) {
   return null;
 }
 
-console.log('YouTube.js loaded (FIXED)');
+console.log('YouTube.js loaded (SYNC VERSION)');
