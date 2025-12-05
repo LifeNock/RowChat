@@ -362,22 +362,58 @@
   </div>
 
   <!-- Whiteboard Modal -->
-  <div class="modal-overlay" id="whiteboardModal">
-    <div class="modal modal-large">
-      <div class="modal-header">
-        <h2>🎨 Collaborative Whiteboard</h2>
-        <button class="icon-btn" onclick="closeWhiteboardModal()">×</button>
+<div id="whiteboardModal" class="modal">
+  <div class="modal-content" style="width: 900px; max-width: 95vw;">
+    <div class="modal-header">
+      <h3>🎨 Collaborative Whiteboard</h3>
+      <span class="close-btn" onclick="closeWhiteboardModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <!-- Color Picker & Tools -->
+      <div id="whiteboardColorPicker" style="
+        background: var(--bg-secondary); 
+        padding: 12px; 
+        border-radius: 8px; 
+        margin-bottom: 12px;
+      "></div>
+      
+      <!-- Canvas -->
+      <div style="
+        background: #1e1e1e; 
+        border-radius: 8px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center;
+        overflow: hidden;
+      ">
+        <canvas 
+          id="whiteboardCanvas" 
+          style="
+            border-radius: 8px; 
+            cursor: crosshair;
+            display: block;
+          "
+        ></canvas>
       </div>
-      <div class="modal-body">
-        <p>Start a whiteboard session and invite people to draw together!</p>
-        <canvas id="whiteboardCanvas" width="800" height="600" style="border: 2px solid var(--border); border-radius: 8px; background: white; cursor: crosshair;"></canvas>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="closeWhiteboardModal()">Close</button>
-        <button class="btn-primary" onclick="sendWhiteboardInvite()">Invite to Whiteboard</button>
+      
+      <!-- Controls -->
+      <div style="
+        margin-top: 12px; 
+        display: flex; 
+        gap: 8px; 
+        justify-content: space-between;
+        align-items: center;
+      ">
+        <button class="btn-secondary" onclick="clearWhiteboard()">
+          🗑️ Clear Canvas
+        </button>
+        <button class="btn-primary" onclick="sendWhiteboardInvite()">
+          📨 Send Invite
+        </button>
       </div>
     </div>
   </div>
+</div>
 
   <!-- YouTube Modal -->
   <div class="modal-overlay" id="youtubeModal">
