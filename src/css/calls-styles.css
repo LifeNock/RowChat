@@ -1,1 +1,150 @@
+/* CALL STYLES */
 
+.call-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-modal.active {
+  display: flex;
+}
+
+.call-container {
+  width: 90vw;
+  max-width: 1200px;
+  height: 80vh;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.call-header {
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.call-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.call-status {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.call-video-container {
+  flex: 1;
+  position: relative;
+  background: #000;
+}
+
+.remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.local-video {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 240px;
+  height: 180px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 3px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.call-controls {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--bg-secondary);
+}
+
+.call-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.call-btn:hover {
+  transform: scale(1.1);
+}
+
+.mute-btn {
+  background: var(--bg-tertiary);
+}
+
+.mute-btn:hover {
+  background: var(--bg-hover);
+}
+
+.video-btn {
+  background: var(--bg-tertiary);
+}
+
+.video-btn:hover {
+  background: var(--bg-hover);
+}
+
+.screen-btn {
+  background: var(--accent);
+}
+
+.screen-btn:hover {
+  background: var(--accent-hover);
+}
+
+.end-btn {
+  background: var(--danger);
+}
+
+.end-btn:hover {
+  background: #d93636;
+  transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+  .call-container {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .local-video {
+    width: 120px;
+    height: 90px;
+    bottom: 100px;
+    right: 10px;
+  }
+  
+  .call-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+}
