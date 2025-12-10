@@ -1,4 +1,4 @@
-/* ROWCHAT - THEMES WITH CIRCLE SNOWFLAKES */
+/* ROWCHAT - THEMES WITH WORKING SNOWFLAKES */
 
 /* Christmas Theme - ORIGINAL COLORS */
 [data-theme="christmas"] {
@@ -26,91 +26,147 @@
   --shadow: rgba(0, 0, 0, 0.5);
 }
 
-/* Snowflakes - Only in messages container */
-[data-theme="christmas"] .messages-container {
-  position: relative;
-  overflow: hidden;
-}
-
-[data-theme="christmas"] .messages-container::before,
-[data-theme="christmas"] .messages-container::after {
+/* Snowflakes overlay - Full screen, top layer */
+[data-theme="christmas"] body::before {
   content: "";
-  position: absolute;
-  width: 100%;
-  height: 100%;
+  position: fixed;
   top: 0;
   left: 0;
+  width: 100vw;
+  height: 100vh;
   pointer-events: none;
-  z-index: 1;
+  z-index: 999999;
   background-image: 
-    radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.4) 3px, transparent 3px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.3) 4px, transparent 4px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.4) 3px, transparent 3px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.3) 3px, transparent 3px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.4) 4px, transparent 4px);
-  background-size: 100% 100%;
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 3px, transparent 3px),
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 4px, transparent 4px),
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 3px, transparent 3px),
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 3px, transparent 3px),
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 4px, transparent 4px);
+  background-size: 
+    100px 800px,
+    100px 1000px,
+    100px 900px,
+    100px 1100px,
+    100px 850px,
+    100px 950px,
+    100px 900px,
+    100px 1000px,
+    100px 800px,
+    100px 1050px;
   background-position: 
-    10% 0%, 
-    25% 0%, 
-    40% 0%, 
-    55% 0%, 
-    70% 0%, 
-    15% 0%, 
-    32% 0%, 
-    48% 0%, 
-    63% 0%, 
-    78% 0%;
-  background-repeat: no-repeat;
-  animation: snowfall 12s linear infinite;
+    10% 0, 
+    25% 0, 
+    40% 0, 
+    55% 0, 
+    70% 0, 
+    15% 0, 
+    32% 0, 
+    48% 0, 
+    63% 0, 
+    78% 0;
+  background-repeat: repeat-y;
+  opacity: 0.5;
+  animation: snowfall-layer1 15s linear infinite;
 }
 
-[data-theme="christmas"] .messages-container::after {
+[data-theme="christmas"] body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 999999;
+  background-image: 
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 3px, transparent 3px),
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 3px, transparent 3px),
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 4px, transparent 4px),
+    radial-gradient(circle, white 2px, transparent 2px),
+    radial-gradient(circle, white 3px, transparent 3px);
+  background-size: 
+    100px 900px,
+    100px 1000px,
+    100px 950px,
+    100px 850px,
+    100px 1100px,
+    100px 900px,
+    100px 1000px,
+    100px 950px;
   background-position: 
-    5% 0%, 
-    20% 0%, 
-    35% 0%, 
-    50% 0%, 
-    65% 0%, 
-    80% 0%, 
-    12% 0%, 
-    28% 0%, 
-    44% 0%, 
-    72% 0%;
-  animation: snowfall 18s linear infinite;
-  animation-delay: -5s;
+    5% 0, 
+    20% 0, 
+    35% 0, 
+    50% 0, 
+    65% 0, 
+    80% 0, 
+    90% 0, 
+    12% 0;
+  background-repeat: repeat-y;
+  opacity: 0.4;
+  animation: snowfall-layer2 20s linear infinite;
 }
 
-@keyframes snowfall {
+@keyframes snowfall-layer1 {
   0% {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
+    background-position: 
+      10% 0, 
+      25% -100px, 
+      40% -200px, 
+      55% -50px, 
+      70% -150px, 
+      15% -80px, 
+      32% -120px, 
+      48% -90px, 
+      63% -110px, 
+      78% -70px;
   }
   100% {
-    transform: translateY(100vh);
-    opacity: 0;
+    background-position: 
+      10% 100vh, 
+      25% calc(100vh - 100px), 
+      40% calc(100vh - 200px), 
+      55% calc(100vh - 50px), 
+      70% calc(100vh - 150px), 
+      15% calc(100vh - 80px), 
+      32% calc(100vh - 120px), 
+      48% calc(100vh - 90px), 
+      63% calc(100vh - 110px), 
+      78% calc(100vh - 70px);
   }
 }
 
-/* Make sure messages appear above snowflakes */
-[data-theme="christmas"] .message {
-  position: relative;
-  z-index: 2;
-}
-
-[data-theme="christmas"] .welcome-message {
-  position: relative;
-  z-index: 2;
+@keyframes snowfall-layer2 {
+  0% {
+    background-position: 
+      5% -50px, 
+      20% -150px, 
+      35% -100px, 
+      50% -200px, 
+      65% -80px, 
+      80% -120px, 
+      90% -90px, 
+      12% -140px;
+  }
+  100% {
+    background-position: 
+      5% calc(100vh - 50px), 
+      20% calc(100vh - 150px), 
+      35% calc(100vh - 100px), 
+      50% calc(100vh - 200px), 
+      65% calc(100vh - 80px), 
+      80% calc(100vh - 120px), 
+      90% calc(100vh - 90px), 
+      12% calc(100vh - 140px);
+  }
 }
 
 /* Dark Blue Theme */
