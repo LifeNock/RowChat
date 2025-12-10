@@ -1,51 +1,42 @@
-// ============================================
-// ROWCHAT - CHAT DIAGNOSTIC VERSION
-// ============================================
+// ROWCHAT - CHAT
+
+let messagesCache = {};
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-// Load Messages - WITH EXTENSIVE DEBUGGING
 async function loadMessages(roomId) {
-  console.log('═══════════════════════════════════════');
-  console.log('📥 LOADING MESSAGES FOR ROOM:', roomId);
-  console.log('═══════════════════════════════════════');
+  console.log('Loading messages for room:', roomId);
   
   const container = document.getElementById('messagesContainer');
   if (!container) {
-    console.error('❌ messagesContainer not found!');
+    console.error('messagesContainer not found');
     return;
   }
   
-  container.innerHTML = '<div style="padding: 20px; text-align: center;">Loading messages...</div>';
+  container.innerHTML = '<div style="padding: 20px; text-align: center;">Loading...</div>';
   
   try {
     const supabase = getSupabase();
-    
-    console.log('🔍 Fetching messages from database...');
     
     const { data: messages, error } = await supabase
       .from('messages')
       .select('*')
       .eq('room_id', roomId)
-      .order('created_at', { ascending: true })
-      .limit(100);
+      .order('created_at', { ascending: true });
     
-    console.log('📊 Query result:', {
-      messageCount: messages ? messages.length : 0,
-      error: error,
-      messages: messages
-    });
+    console.log(`Found ${messages ? messages.length : 0} messages`);
     
     if (error) {
-      console.error('❌ Database error:', error);
-      container.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Error: ${error.message}</div>`;
-      throw error;
+      console.error('Error loading messages:', error);
+      container.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Error loading messages</div>';
+      return;
     }
     
+    container.innerHTML = '';
+    
     if (!messages || messages.length === 0) {
-      console.log('📭 No messages found for this room');
       container.innerHTML = `
         <div class="welcome-message">
           <div class="welcome-icon">💬</div>
@@ -56,66 +47,45 @@ async function loadMessages(roomId) {
       return;
     }
     
-    console.log('✅ Found', messages.length, 'messages. Rendering...');
-    
-    container.innerHTML = '';
-    
-    messages.forEach((message, index) => {
-      console.log(`Rendering message ${index + 1}:`, {
-        id: message.id,
-        user: message.username,
-        content: message.content.substring(0, 50)
-      });
-      
+    messages.forEach(message => {
       addMessageToUI(message);
     });
     
-    console.log('✅ All messages rendered successfully!');
-    
-    // Scroll to bottom
     setTimeout(() => {
       container.scrollTop = container.scrollHeight;
     }, 100);
     
+    console.log('Messages loaded successfully');
+    
   } catch (error) {
-    console.error('❌ Error loading messages:', error);
-    container.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Failed to load messages</div>`;
+    console.error('Error loading messages:', error);
+    container.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Failed to load messages</div>';
   }
 }
 
-// Add Message to UI
 function addMessageToUI(message) {
   const container = document.getElementById('messagesContainer');
-  if (!container) {
-    console.error('❌ Cannot add message - container not found');
-    return;
-  }
+  if (!container) return;
   
-  // Check if message already exists
   if (document.getElementById(`msg-${message.id}`)) {
-    console.log('⚠️ Message already exists, skipping:', message.id);
+    console.log('Message already exists:', message.id);
     return;
   }
   
-  console.log('➕ Adding message to UI:', message.id);
-  
-  const user = getUser ? getUser(message.user_id) : { username: message.username || 'Unknown' };
-  const isOwn = currentUser && message.user_id === currentUser.id;
+  const user = typeof getUser === 'function' ? getUser(message.user_id) : { username: message.username || 'Unknown' };
   
   const msgDiv = document.createElement('div');
   msgDiv.className = 'message';
   msgDiv.id = `msg-${message.id}`;
   
-  // Avatar
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
   if (user.avatar_url) {
     avatar.innerHTML = `<img src="${user.avatar_url}">`;
   } else {
-    avatar.textContent = message.username ? message.username.charAt(0).toUpperCase() : 'U';
+    avatar.textContent = (message.username || user.username || 'U').charAt(0).toUpperCase();
   }
   
-  // Content
   const contentWrapper = document.createElement('div');
   contentWrapper.style.flex = '1';
   
@@ -128,14 +98,34 @@ function addMessageToUI(message) {
   
   const timestamp = document.createElement('span');
   timestamp.className = 'message-timestamp';
-  timestamp.textContent = formatTime ? formatTime(message.created_at) : new Date(message.created_at).toLocaleTimeString();
+  timestamp.textContent = typeof formatTime === 'function' ? formatTime(message.created_at) : new Date(message.created_at).toLocaleTimeString();
   
   header.appendChild(username);
   header.appendChild(timestamp);
   
   const content = document.createElement('div');
   content.className = 'message-content';
-  content.textContent = message.content;
+  
+  if (message.message_type === 'image' && message.file_url) {
+    content.innerHTML = `
+      ${escapeHtml(message.content)}<br>
+      <img src="${message.file_url}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
+    `;
+  } else if (message.message_type === 'video' && message.file_url) {
+    content.innerHTML = `
+      ${escapeHtml(message.content)}<br>
+      <video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;">
+        <source src="${message.file_url}">
+      </video>
+    `;
+  } else if (message.message_type === 'file' && message.file_url) {
+    content.innerHTML = `
+      ${escapeHtml(message.content)}<br>
+      <a href="${message.file_url}" target="_blank" style="color: var(--accent);">📎 ${escapeHtml(message.file_name || 'Download File')}</a>
+    `;
+  } else {
+    content.textContent = message.content;
+  }
   
   contentWrapper.appendChild(header);
   contentWrapper.appendChild(content);
@@ -144,38 +134,22 @@ function addMessageToUI(message) {
   msgDiv.appendChild(contentWrapper);
   
   container.appendChild(msgDiv);
-  
-  console.log('✅ Message added:', message.id);
 }
 
-// Send Message - WITH DEBUGGING
 async function sendMessage() {
-  console.log('═══════════════════════════════════════');
-  console.log('📤 SENDING MESSAGE');
-  console.log('═══════════════════════════════════════');
-  
   const input = document.getElementById('messageInput');
-  if (!input) {
-    console.error('❌ messageInput not found!');
-    return;
-  }
+  if (!input) return;
   
   const content = input.value.trim();
   
-  if (!content) {
-    console.log('⚠️ Empty message, not sending');
-    return;
-  }
+  if (!content) return;
   
   if (!currentRoom && !currentDM) {
-    console.error('❌ No room or DM selected!');
-    showToast('Please select a room or DM first', 'warning');
+    if (typeof showToast === 'function') {
+      showToast('Please select a room or DM first', 'warning');
+    }
     return;
   }
-  
-  console.log('📝 Message content:', content);
-  console.log('📍 Current room:', currentRoom);
-  console.log('👤 Current user:', currentUser);
   
   const roomId = currentRoom ? currentRoom.id : currentDM.id;
   
@@ -187,11 +161,10 @@ async function sendMessage() {
       user_id: currentUser.id,
       username: currentUser.username,
       content: content,
-      message_type: 'text',
-      created_at: new Date().toISOString()
+      message_type: 'text'
     };
     
-    console.log('💾 Inserting message to database:', messageData);
+    console.log('Sending message:', messageData);
     
     const { data, error } = await supabase
       .from('messages')
@@ -200,77 +173,130 @@ async function sendMessage() {
       .single();
     
     if (error) {
-      console.error('❌ Database insert error:', error);
-      showToast('Failed to send message: ' + error.message, 'error');
-      throw error;
+      console.error('Error sending message:', error);
+      if (typeof showToast === 'function') {
+        showToast('Failed to send message', 'error');
+      }
+      return;
     }
     
-    console.log('✅ Message saved to database:', data);
+    console.log('Message sent:', data);
     
-    // Clear input
     input.value = '';
     
-    // IMPORTANT: Manually add the message to UI since realtime might be broken
-    console.log('➕ Manually adding message to UI...');
     addMessageToUI(data);
     
-    console.log('✅ Message sent successfully!');
+    const container = document.getElementById('messagesContainer');
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
     
   } catch (error) {
-    console.error('❌ Error sending message:', error);
-    showToast('Failed to send message', 'error');
+    console.error('Error sending message:', error);
+    if (typeof showToast === 'function') {
+      showToast('Failed to send message', 'error');
+    }
   }
 }
 
-// Check Realtime Status
-function checkRealtimeStatus() {
-  console.log('═══════════════════════════════════════');
-  console.log('🔌 CHECKING REALTIME STATUS');
-  console.log('═══════════════════════════════════════');
+const messageInput = document.getElementById('messageInput');
+if (messageInput) {
+  messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
   
-  const supabase = getSupabase();
-  
-  // Check if subscriptions exist
-  if (supabase.getChannels) {
-    const channels = supabase.getChannels();
-    console.log('📡 Active channels:', channels.length);
-    channels.forEach((channel, index) => {
-      console.log(`Channel ${index + 1}:`, {
-        topic: channel.topic,
-        state: channel.state
-      });
-    });
-  } else {
-    console.log('⚠️ Cannot check channels');
-  }
-  
-  console.log('═══════════════════════════════════════');
-}
-
-// Initialize Chat (call this when page loads)
-function initChat() {
-  console.log('🚀 Initializing chat diagnostic mode');
-  
-  // Check realtime status every 5 seconds
-  setInterval(checkRealtimeStatus, 5000);
-  
-  // Listen for Enter key
-  const input = document.getElementById('messageInput');
-  if (input) {
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+  messageInput.addEventListener('input', (e) => {
+    const length = e.target.value.length;
+    const counter = document.getElementById('charCount');
+    
+    if (counter) {
+      if (length > 1800) {
+        counter.textContent = `${length}/2000`;
+        counter.style.color = 'var(--danger)';
+      } else if (length > 0) {
+        counter.textContent = `${length}/2000`;
+        counter.style.color = 'var(--text-tertiary)';
+      } else {
+        counter.textContent = '';
       }
-    });
+    }
+  });
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now - date;
+  
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+function openImageModal(url) {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('modalImage');
+  if (modal && img) {
+    img.src = url;
+    modal.classList.add('active');
   }
 }
 
-// Call init when DOM loads
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initChat);
-} else {
-  initChat();
+function closeImageModal() {
+  const modal = document.getElementById('imageModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
 }
 
-console.log('💬 Chat.js loaded (DIAGNOSTIC VERSION)');
+const fileInput = document.getElementById('fileInput');
+if (fileInput) {
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    console.log('File selected:', file.name);
+    
+    const preview = document.getElementById('filePreview');
+    const previewBar = document.getElementById('filePreviewBar');
+    
+    if (preview && previewBar) {
+      preview.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      previewBar.style.display = 'flex';
+    }
+    
+    window.pendingFile = file;
+  });
+}
+
+function cancelFile() {
+  window.pendingFile = null;
+  const previewBar = document.getElementById('filePreviewBar');
+  if (previewBar) {
+    previewBar.style.display = 'none';
+  }
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) {
+    fileInput.value = '';
+  }
+}
+
+console.log('Chat.js loaded');
