@@ -1,287 +1,133 @@
 // ============================================
-// ROWCHAT - ROOMS (FIXED: NO DMS + ONLINE STATUS)
+// ROWCHAT - ROOMS (FIXED)
 // ============================================
-
-function getSupabase() {
-  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-}
 
 // Load Rooms
 async function loadRooms() {
   try {
-    const supabase = getSupabase();
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
-    // IMPORTANT: Only get actual rooms, not DMs
-    const { data: rooms, error } = await supabase
+    const { data, error } = await supabase
       .from('rooms')
       .select('*')
-      .eq('is_dm', false)  // Filter out DMs
-      .order('created_at', { ascending: false });
+      .eq('is_dm', false)
+      .order('name', { ascending: true });
     
     if (error) throw error;
     
-    console.log('Raw rooms from database:', rooms);
-    
-    // Load members for each room
-    for (const room of rooms) {
-      const { data: members } = await supabase
-        .from('room_members')
-        .select('user_id')
-        .eq('room_id', room.id);
-      
-      room.members = members ? members.map(m => m.user_id) : [];
+    // Cache rooms
+    data.forEach(room => {
       roomsCache[room.id] = room;
+    });
+    
+    // Get user's room memberships
+    const { data: memberships } = await supabase
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', currentUser.id);
+    
+    const memberRoomIds = new Set(memberships?.map(m => m.room_id) || []);
+    
+    // Render rooms list
+    const roomsList = document.getElementById('roomsList');
+    roomsList.innerHTML = '';
+    
+    if (data.length === 0) {
+      roomsList.innerHTML = '<p style="padding: 12px; text-align: center; color: var(--text-tertiary); font-size: 13px;">No rooms yet</p>';
+      return;
     }
     
-    renderRoomList(rooms);
-    console.log('Loaded rooms (not DMs):', rooms.length);
+    data.forEach(room => {
+      const isMember = memberRoomIds.has(room.id);
+      
+      const roomItem = document.createElement('div');
+      roomItem.className = 'room-item';
+      if (currentRoom && currentRoom.id === room.id) {
+        roomItem.classList.add('active');
+      }
+      
+      roomItem.innerHTML = `
+        <div class="room-icon">#</div>
+        <span class="room-name">${escapeHtml(room.name)}</span>
+      `;
+      
+      roomItem.onclick = () => {
+        if (isMember) {
+          openRoom(room);
+        } else {
+          joinRoom(room.id);
+        }
+      };
+      
+      roomsList.appendChild(roomItem);
+    });
+    
+    console.log('Loaded rooms:', data.length);
   } catch (error) {
     console.error('Error loading rooms:', error);
   }
 }
 
-// Render Room List
-function renderRoomList(rooms) {
-  const container = document.getElementById('roomsList');
-  if (!container) return;
-  
-  container.innerHTML = '';
-  
-  if (rooms.length === 0) {
-    container.innerHTML = '<p style="padding: 12px; text-align: center; color: var(--text-tertiary);">No rooms yet. Create one!</p>';
-    return;
-  }
-  
-  console.log('Rendering rooms. Online users:', onlineUsers);
-  
-  rooms.forEach(room => {
-    const roomDiv = document.createElement('div');
-    roomDiv.className = 'room-item';
-    roomDiv.dataset.roomId = room.id;
-    
-    // Count online members - FIX: Check properly
-    let onlineCount = 0;
-    if (room.members && Array.isArray(room.members)) {
-      room.members.forEach(memberId => {
-        // Check if user is in onlineUsers object AND is_online is true
-        if (onlineUsers && onlineUsers[memberId] && onlineUsers[memberId].is_online) {
-          onlineCount++;
-        }
-      });
-    }
-    
-    console.log(`Room "${room.name}" has ${room.members ? room.members.length : 0} members, ${onlineCount} online`);
-    
-    // Unread count
-    const unread = (typeof unreadRooms !== 'undefined') ? (unreadRooms[room.id] || 0) : 0;
-    
-    // Build HTML
-    let html = `
-      <div class="room-icon">${room.icon || '📁'}</div>
-      <div style="flex: 1;">
-        <div class="room-name">${escapeHtml(room.name)}</div>
-        <div class="room-description">${escapeHtml(room.description || 'No description')}</div>
-    `;
-    
-    if (onlineCount > 0) {
-      html += `<div style="display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 11px; color: #43b581;">
-        <div style="width: 6px; height: 6px; background: #43b581; border-radius: 50%;"></div>
-        ${onlineCount} online
-      </div>`;
-    }
-    
-    html += '</div>';
-    
-    if (unread > 0) {
-      html += `<div style="background: #f23f43; color: white; border-radius: 10px; padding: 2px 6px; font-size: 11px; font-weight: 700;">${unread > 99 ? '99+' : unread}</div>`;
-    }
-    
-    roomDiv.innerHTML = html;
-    
-    // Click handler
-    roomDiv.addEventListener('click', function() {
-      selectRoom(room);
-    });
-    
-    container.appendChild(roomDiv);
-  });
-}
-
-// Select Room
-function selectRoom(room) {
-  console.log('Selecting room:', room.name);
-  
+// Open Room
+async function openRoom(room) {
   currentRoom = room;
   currentDM = null;
   
-  // Clear unread
-  if (typeof unreadRooms !== 'undefined') {
-    delete unreadRooms[room.id];
-    if (typeof updateRoomBadges === 'function') {
-      updateRoomBadges();
-    }
+  // Update UI
+  document.querySelectorAll('.room-item').forEach(item => item.classList.remove('active'));
+  if (event && event.target) {
+    event.target.closest('.room-item')?.classList.add('active');
   }
   
-  // Update active class
-  document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
-  const selected = document.querySelector(`.room-item[data-room-id="${room.id}"]`);
-  if (selected) selected.classList.add('active');
-  
-  // Show chat
-  const chat = document.getElementById('chatSection');
-  if (chat) chat.style.display = 'flex';
-  
-  // Update header
-  const header = document.getElementById('roomHeader');
-  if (header) header.textContent = `${room.icon || '📁'} ${room.name}`;
+  document.getElementById('chatTitle').textContent = '# ' + room.name;
+  document.getElementById('chatDescription').textContent = room.description || '';
   
   // Load messages
-  if (typeof loadMessages === 'function') {
-    loadMessages(room.id);
-  }
+  await loadMessages(room.id);
   
-  // Load members
-  loadRoomMembers(room.id);
+  // Load online users count
+  updateOnlineUsersInRoom(room.id);
 }
 
-// Load Room Members
-async function loadRoomMembers(roomId) {
+// Update Online Users in Room
+async function updateOnlineUsersInRoom(roomId) {
   try {
-    const supabase = getSupabase();
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
-    const { data, error } = await supabase
-      .from('room_members')
+    const { data } = await supabase
+      .from('presence')
       .select('user_id')
-      .eq('room_id', roomId);
+      .eq('is_online', true);
     
-    if (error) throw error;
-    
-    const container = document.getElementById('roomMembers');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    console.log('Room members:', data);
-    
-    data.forEach(member => {
-      const user = getUser(member.user_id);
-      const isOnline = onlineUsers && onlineUsers[member.user_id] && onlineUsers[member.user_id].is_online;
-      
-      console.log(`Member ${user.username}: online=${isOnline}`);
-      
-      const div = document.createElement('div');
-      div.className = 'member-item';
-      
-      div.innerHTML = `
-        <div style="position: relative;">
-          <div class="dm-avatar" style="width: 32px; height: 32px;">
-            ${user.avatar_url ? `<img src="${user.avatar_url}">` : user.username.charAt(0).toUpperCase()}
-          </div>
-          ${isOnline ? `<div style="position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; background: #43b581; border: 2px solid var(--bg-secondary); border-radius: 50%;"></div>` : ''}
-        </div>
-        <span>${escapeHtml(user.username)}</span>
-      `;
-      
-      div.onclick = () => {
-        if (typeof createDM === 'function') createDM(member.user_id);
-      };
-      
-      container.appendChild(div);
-    });
+    const count = data?.length || 0;
+    document.getElementById('onlineCount').textContent = `${count} online`;
   } catch (error) {
-    console.error('Error loading members:', error);
-  }
-}
-
-// Open Create Room Modal
-function openCreateRoomModal() {
-  const modal = document.getElementById('createRoomModal');
-  if (!modal) return;
-  
-  modal.classList.add('active');
-  
-  const name = document.getElementById('roomNameInput');
-  const desc = document.getElementById('roomDescInput');
-  const icon = document.getElementById('roomIconInput');
-  
-  if (name) name.value = '';
-  if (desc) desc.value = '';
-  if (icon) icon.value = '📁';
-}
-
-// Close Create Room Modal
-function closeCreateRoomModal() {
-  const modal = document.getElementById('createRoomModal');
-  if (modal) modal.classList.remove('active');
-}
-
-// Create Room
-async function createRoom() {
-  const nameInput = document.getElementById('roomNameInput');
-  const descInput = document.getElementById('roomDescInput');
-  const iconInput = document.getElementById('roomIconInput');
-  
-  if (!nameInput) return;
-  
-  const name = nameInput.value.trim();
-  const description = descInput ? descInput.value.trim() : '';
-  const icon = iconInput ? iconInput.value.trim() : '📁';
-  
-  if (!name) {
-    showToast('Enter a room name', 'warning');
-    return;
-  }
-  
-  try {
-    const supabase = getSupabase();
-    
-    const { data: room, error: roomError } = await supabase
-      .from('rooms')
-      .insert([{
-        name: name,
-        description: description,
-        icon: icon,
-        created_by: currentUser.id,
-        is_dm: false  // IMPORTANT: Mark as NOT a DM
-      }])
-      .select()
-      .single();
-    
-    if (roomError) throw roomError;
-    
-    const { error: memberError } = await supabase
-      .from('room_members')
-      .insert([{
-        room_id: room.id,
-        user_id: currentUser.id
-      }]);
-    
-    if (memberError) throw memberError;
-    
-    showToast('Room created!', 'success');
-    closeCreateRoomModal();
-    loadRooms();
-  } catch (error) {
-    console.error('Error creating room:', error);
-    showToast('Failed to create room', 'error');
+    console.error('Error getting online count:', error);
   }
 }
 
 // Join Room
 async function joinRoom(roomId) {
   try {
-    const supabase = getSupabase();
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
     const { error } = await supabase
       .from('room_members')
       .insert([{
         room_id: roomId,
-        user_id: currentUser.id
+        user_id: currentUser.id,
+        role: 'member'
       }]);
     
     if (error) throw error;
     
     showToast('Joined room!', 'success');
+    
+    // Open the room
+    const room = roomsCache[roomId];
+    if (room) openRoom(room);
+    
+    // Reload rooms to update UI
     loadRooms();
   } catch (error) {
     console.error('Error joining room:', error);
@@ -294,7 +140,7 @@ async function leaveRoom(roomId) {
   if (!confirm('Leave this room?')) return;
   
   try {
-    const supabase = getSupabase();
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
     const { error } = await supabase
       .from('room_members')
@@ -304,12 +150,17 @@ async function leaveRoom(roomId) {
     
     if (error) throw error;
     
-    showToast('Left room', 'info');
+    showToast('Left room', 'success');
     
     if (currentRoom && currentRoom.id === roomId) {
       currentRoom = null;
-      const chat = document.getElementById('chatSection');
-      if (chat) chat.style.display = 'none';
+      document.getElementById('messagesContainer').innerHTML = `
+        <div class="welcome-message">
+          <div class="welcome-icon">⛵</div>
+          <h3>Select a room</h3>
+          <p>Choose a room from the sidebar to start chatting.</p>
+        </div>
+      `;
     }
     
     loadRooms();
@@ -319,27 +170,136 @@ async function leaveRoom(roomId) {
   }
 }
 
-// Delete Room
-async function deleteRoom(roomId) {
-  if (!confirm('Delete this room? Cannot be undone!')) return;
+// Open Create Room Modal
+function openCreateRoomModal() {
+  document.getElementById('roomName').value = '';
+  document.getElementById('roomDescription').value = '';
+  document.getElementById('createRoomModal').classList.add('active');
+}
+
+// Close Create Room Modal
+function closeCreateRoomModal() {
+  document.getElementById('createRoomModal').classList.remove('active');
+}
+
+// Create Room
+async function createRoom() {
+  const name = document.getElementById('roomName').value.trim();
+  const description = document.getElementById('roomDescription').value.trim();
+  
+  console.log('Creating room:', { name, description });
+  
+  if (!name) {
+    showToast('Please enter a room name', 'warning');
+    return;
+  }
+  
+  if (name.length < 3) {
+    showToast('Room name must be at least 3 characters', 'warning');
+    return;
+  }
   
   try {
-    const supabase = getSupabase();
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    console.log('Step 1: Creating room in database...');
+    
+    // Create room
+    const { data: room, error: roomError } = await supabase
+      .from('rooms')
+      .insert([{
+        name: name,
+        description: description,
+        is_dm: false,
+        created_by: currentUser.id
+      }])
+      .select()
+      .single();
+    
+    console.log('Room creation result:', { room, roomError });
+    
+    if (roomError) {
+      console.error('Room creation error details:', roomError);
+      showToast('Failed to create room: ' + roomError.message, 'error');
+      return;
+    }
+    
+    if (!room) {
+      console.error('No room data returned');
+      showToast('Failed to create room: No data returned', 'error');
+      return;
+    }
+    
+    console.log('Step 2: Adding creator as member...');
+    
+    // Auto-join creator
+    const { error: memberError } = await supabase
+      .from('room_members')
+      .insert([{
+        room_id: room.id,
+        user_id: currentUser.id,
+        role: 'owner'
+      }]);
+    
+    console.log('Member creation result:', { memberError });
+    
+    if (memberError) {
+      console.error('Member creation error:', memberError);
+      showToast('Room created but failed to join: ' + memberError.message, 'warning');
+    } else {
+      console.log('Room created and joined successfully!');
+      showToast('Room created!', 'success');
+    }
+    
+    closeCreateRoomModal();
+    
+    // Reload rooms and open the new room
+    await loadRooms();
+    openRoom(room);
+  } catch (error) {
+    console.error('Error creating room (exception):', error);
+    showToast('Failed to create room: ' + error.message, 'error');
+  }
+}
+
+// Delete Room (owner only)
+async function deleteRoom(roomId) {
+  if (!confirm('Delete this room? This cannot be undone!')) return;
+  
+  try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    // Check if user is owner
+    const { data: membership } = await supabase
+      .from('room_members')
+      .select('role')
+      .eq('room_id', roomId)
+      .eq('user_id', currentUser.id)
+      .single();
+    
+    if (membership?.role !== 'owner') {
+      showToast('Only room owner can delete rooms', 'error');
+      return;
+    }
     
     const { error } = await supabase
       .from('rooms')
       .delete()
-      .eq('id', roomId)
-      .eq('created_by', currentUser.id);
+      .eq('id', roomId);
     
     if (error) throw error;
     
-    showToast('Room deleted', 'info');
+    showToast('Room deleted', 'success');
     
     if (currentRoom && currentRoom.id === roomId) {
       currentRoom = null;
-      const chat = document.getElementById('chatSection');
-      if (chat) chat.style.display = 'none';
+      document.getElementById('messagesContainer').innerHTML = `
+        <div class="welcome-message">
+          <div class="welcome-icon">⛵</div>
+          <h3>Select a room</h3>
+          <p>Choose a room from the sidebar to start chatting.</p>
+        </div>
+      `;
     }
     
     loadRooms();
@@ -349,4 +309,22 @@ async function deleteRoom(roomId) {
   }
 }
 
-console.log('Rooms.js loaded (FIXED: No DMs + Online Status)');
+// Get Room Members
+async function getRoomMembers(roomId) {
+  try {
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    
+    const { data, error } = await supabase
+      .from('room_members')
+      .select('*')
+      .eq('room_id', roomId);
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error getting room members:', error);
+    return [];
+  }
+}
+
+console.log('Rooms.js loaded (FIXED with debugging)');
