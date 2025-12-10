@@ -1,4 +1,7 @@
-// ROWCHAT - CHAT
+// ROWCHAT - CHAT WITH REPLY, MENTIONS, EDIT
+
+let currentReplyTo = null;
+let currentEditMessage = null;
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -61,20 +64,35 @@ async function loadMessages(roomId) {
   }
 }
 
+function processMentions(text) {
+  return text.replace(/@(\w+)/g, (match, username) => {
+    const isCurrentUser = currentUser && username.toLowerCase() === currentUser.username.toLowerCase();
+    const color = isCurrentUser ? 'rgba(250, 166, 26, 0.3)' : 'rgba(88, 101, 242, 0.2)';
+    return `<span style="background: ${color}; padding: 2px 6px; border-radius: 4px; font-weight: 600;">@${username}</span>`;
+  });
+}
+
 function addMessageToUI(message) {
   const container = document.getElementById('messagesContainer');
   if (!container) return;
   
   if (document.getElementById(`msg-${message.id}`)) {
-    console.log('Message already exists:', message.id);
     return;
   }
   
   const user = typeof getUser === 'function' ? getUser(message.user_id) : { username: message.username || 'Unknown' };
   
+  const isMentioned = message.content && currentUser && message.content.toLowerCase().includes('@' + currentUser.username.toLowerCase());
+  
   const msgDiv = document.createElement('div');
   msgDiv.className = 'message';
   msgDiv.id = `msg-${message.id}`;
+  
+  if (isMentioned) {
+    msgDiv.style.background = 'rgba(250, 166, 26, 0.1)';
+    msgDiv.style.borderLeft = '3px solid rgba(250, 166, 26, 0.8)';
+    msgDiv.style.paddingLeft = '12px';
+  }
   
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
@@ -86,6 +104,7 @@ function addMessageToUI(message) {
   
   const contentWrapper = document.createElement('div');
   contentWrapper.style.flex = '1';
+  contentWrapper.style.position = 'relative';
   
   const header = document.createElement('div');
   header.className = 'message-header';
@@ -101,37 +120,109 @@ function addMessageToUI(message) {
   header.appendChild(username);
   header.appendChild(timestamp);
   
+  if (message.reply_to) {
+    const replyPreview = document.createElement('div');
+    replyPreview.style.cssText = 'background: rgba(0,0,0,0.2); border-left: 3px solid var(--accent); padding: 6px 10px; margin: 6px 0; border-radius: 4px; font-size: 12px; cursor: pointer;';
+    replyPreview.innerHTML = `<strong>Replying to:</strong> ${escapeHtml((message.reply_text || '').substring(0, 50))}...`;
+    replyPreview.onclick = () => scrollToMessage(message.reply_to);
+    contentWrapper.appendChild(replyPreview);
+  }
+  
   const content = document.createElement('div');
   content.className = 'message-content';
   
   if (message.message_type === 'image' && message.file_url) {
     content.innerHTML = `
-      ${escapeHtml(message.content)}<br>
+      ${processMentions(escapeHtml(message.content))}<br>
       <img src="${message.file_url}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
     `;
   } else if (message.message_type === 'video' && message.file_url) {
     content.innerHTML = `
-      ${escapeHtml(message.content)}<br>
+      ${processMentions(escapeHtml(message.content))}<br>
       <video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;">
         <source src="${message.file_url}">
       </video>
     `;
   } else if (message.message_type === 'file' && message.file_url) {
     content.innerHTML = `
-      ${escapeHtml(message.content)}<br>
+      ${processMentions(escapeHtml(message.content))}<br>
       <a href="${message.file_url}" target="_blank" style="color: var(--accent);">📎 ${escapeHtml(message.file_name || 'Download File')}</a>
     `;
   } else {
-    content.textContent = message.content;
+    content.innerHTML = processMentions(escapeHtml(message.content));
   }
+  
+  const actions = document.createElement('div');
+  actions.style.cssText = 'position: absolute; top: 0; right: 0; display: none; gap: 4px; background: var(--bg-secondary); padding: 4px; border-radius: 4px;';
+  actions.innerHTML = `
+    <button onclick="setReply(${message.id}, '${escapeHtml(message.username)}', '${escapeHtml(message.content.substring(0, 50))}')" style="background: none; border: none; cursor: pointer; font-size: 16px;">↩️</button>
+    ${message.user_id === (currentUser ? currentUser.id : 0) ? `<button onclick="editMessage(${message.id}, '${escapeHtml(message.content)}')" style="background: none; border: none; cursor: pointer; font-size: 16px;">✏️</button>` : ''}
+  `;
+  
+  msgDiv.addEventListener('mouseenter', () => actions.style.display = 'flex');
+  msgDiv.addEventListener('mouseleave', () => actions.style.display = 'none');
   
   contentWrapper.appendChild(header);
   contentWrapper.appendChild(content);
+  contentWrapper.appendChild(actions);
   
   msgDiv.appendChild(avatar);
   msgDiv.appendChild(contentWrapper);
   
   container.appendChild(msgDiv);
+}
+
+function setReply(messageId, username, text) {
+  currentReplyTo = { id: messageId, username, text };
+  
+  const replyBar = document.getElementById('replyBar');
+  const replyToUser = document.getElementById('replyToUser');
+  const replyToText = document.getElementById('replyToText');
+  
+  if (replyBar && replyToUser && replyToText) {
+    replyToUser.textContent = username;
+    replyToText.textContent = text;
+    replyBar.style.display = 'flex';
+  }
+  
+  document.getElementById('messageInput')?.focus();
+}
+
+function cancelReply() {
+  currentReplyTo = null;
+  const replyBar = document.getElementById('replyBar');
+  if (replyBar) replyBar.style.display = 'none';
+}
+
+function editMessage(messageId, content) {
+  currentEditMessage = { id: messageId, content };
+  
+  const input = document.getElementById('messageInput');
+  const editBar = document.getElementById('editBar');
+  
+  if (input && editBar) {
+    input.value = content;
+    editBar.style.display = 'flex';
+    input.focus();
+  }
+}
+
+function cancelEdit() {
+  currentEditMessage = null;
+  const input = document.getElementById('messageInput');
+  const editBar = document.getElementById('editBar');
+  
+  if (input) input.value = '';
+  if (editBar) editBar.style.display = 'none';
+}
+
+function scrollToMessage(messageId) {
+  const msgEl = document.getElementById(`msg-${messageId}`);
+  if (msgEl) {
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    msgEl.style.background = 'rgba(88, 101, 242, 0.3)';
+    setTimeout(() => msgEl.style.background = '', 2000);
+  }
 }
 
 async function sendMessage() {
@@ -154,6 +245,29 @@ async function sendMessage() {
   try {
     const supabase = getSupabase();
     
+    if (currentEditMessage) {
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          content: content,
+          edited_at: new Date().toISOString()
+        })
+        .eq('id', currentEditMessage.id);
+      
+      if (error) throw error;
+      
+      const msgEl = document.getElementById(`msg-${currentEditMessage.id}`);
+      if (msgEl) {
+        const contentEl = msgEl.querySelector('.message-content');
+        if (contentEl) {
+          contentEl.innerHTML = processMentions(escapeHtml(content));
+        }
+      }
+      
+      cancelEdit();
+      return;
+    }
+    
     const messageData = {
       room_id: roomId,
       user_id: currentUser.id,
@@ -162,7 +276,10 @@ async function sendMessage() {
       message_type: 'text'
     };
     
-    console.log('Sending message:', messageData);
+    if (currentReplyTo) {
+      messageData.reply_to = currentReplyTo.id;
+      messageData.reply_text = currentReplyTo.text;
+    }
     
     const { data, error } = await supabase
       .from('messages')
@@ -178,9 +295,8 @@ async function sendMessage() {
       return;
     }
     
-    console.log('Message sent:', data);
-    
     input.value = '';
+    cancelReply();
     
     addMessageToUI(data);
     
@@ -297,4 +413,4 @@ function cancelFile() {
   }
 }
 
-console.log('Chat.js loaded');
+console.log('Chat.js loaded (with reply, mentions, edit)');
