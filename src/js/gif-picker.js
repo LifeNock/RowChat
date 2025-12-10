@@ -1,6 +1,7 @@
-// ROWCHAT - GIF PICKER (Giphy API)
+// ROWCHAT - GIF PICKER (Tenor v2 API - Fixed)
 
-const GIPHY_API_KEY = 'dc6zaTOxFJmzC'; // Public Giphy beta key
+const TENOR_API_KEY = 'AIzaSyAyLXS1ge1Wn8zJz_z-wRTF8q_gHVJxXmI';
+const CLIENT_KEY = 'rowchat';
 
 let gifPickerModal = null;
 let currentGifSearch = '';
@@ -69,20 +70,23 @@ async function searchGifs(query) {
   grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Searching...</div>';
   
   try {
-    const url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=20&rating=g`;
+    const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&client_key=${CLIENT_KEY}&limit=20&media_filter=gif`;
+    
+    console.log('Fetching:', url);
+    
     const response = await fetch(url);
     const data = await response.json();
     
-    console.log('Giphy search response:', data);
+    console.log('Tenor response:', data);
     
-    if (data.data && data.data.length > 0) {
-      displayGifs(data.data);
+    if (data.results && data.results.length > 0) {
+      displayGifs(data.results);
     } else {
-      grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No GIFs found</div>';
+      grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No GIFs found. Try a different search.</div>';
     }
   } catch (error) {
     console.error('Error searching GIFs:', error);
-    grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--danger);">Failed to load GIFs</div>';
+    grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--danger);">Error: ' + error.message + '</div>';
   }
 }
 
@@ -91,20 +95,23 @@ async function loadTrendingGifs() {
   grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Loading trending...</div>';
   
   try {
-    const url = `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=g`;
+    const url = `https://tenor.googleapis.com/v2/featured?key=${TENOR_API_KEY}&client_key=${CLIENT_KEY}&limit=20&media_filter=gif`;
+    
+    console.log('Fetching trending:', url);
+    
     const response = await fetch(url);
     const data = await response.json();
     
-    console.log('Giphy trending response:', data);
+    console.log('Tenor trending response:', data);
     
-    if (data.data && data.data.length > 0) {
-      displayGifs(data.data);
+    if (data.results && data.results.length > 0) {
+      displayGifs(data.results);
     } else {
-      grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No trending GIFs</div>';
+      grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No trending GIFs available.</div>';
     }
   } catch (error) {
     console.error('Error loading trending GIFs:', error);
-    grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--danger);">Failed to load GIFs</div>';
+    grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--danger);">Error: ' + error.message + '</div>';
   }
 }
 
@@ -123,14 +130,25 @@ function displayGifs(gifs) {
     gifItem.className = 'gif-item';
     
     const img = document.createElement('img');
-    img.src = gif.images.fixed_width.url;
-    img.alt = gif.title;
+    
+    // Use tinygif for preview, gif for sending
+    if (gif.media_formats && gif.media_formats.tinygif) {
+      img.src = gif.media_formats.tinygif.url;
+    } else if (gif.media_formats && gif.media_formats.gif) {
+      img.src = gif.media_formats.gif.url;
+    } else {
+      console.error('No media format found for gif:', gif);
+      return;
+    }
+    
+    img.alt = gif.content_description || 'GIF';
     img.loading = 'lazy';
     
     gifItem.appendChild(img);
     
     gifItem.onclick = () => {
-      sendGif(gif.images.original.url, gif.title);
+      const fullUrl = gif.media_formats.gif ? gif.media_formats.gif.url : img.src;
+      sendGif(fullUrl, gif.content_description || 'GIF');
     };
     
     grid.appendChild(gifItem);
@@ -192,4 +210,4 @@ if (document.readyState === 'loading') {
   initGifPicker();
 }
 
-console.log('GIF Picker loaded (Giphy)');
+console.log('GIF Picker loaded (Tenor v2)');
