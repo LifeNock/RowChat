@@ -161,6 +161,11 @@ function addMessageToUI(message) {
       ${processMentions(escapeHtml(message.content))}<br>
       <img src="${message.file_url}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
     `;
+  } else if (message.message_type === 'gif' && message.file_url) {
+    content.innerHTML = `
+      ${processMentions(escapeHtml(message.content))}<br>
+      <img src="${message.file_url}" data-gif="true" style="max-width: 300px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
+    `;
   } else if (message.message_type === 'video' && message.file_url) {
     content.innerHTML = `
       ${processMentions(escapeHtml(message.content))}<br>
