@@ -4,16 +4,18 @@ let snowflakeInterval = null;
 
 function createSnowflake() {
   const snowflake = document.createElement('div');
-  snowflake.style.position = 'fixed';
-  snowflake.style.top = '-10px';
-  snowflake.style.left = Math.random() * 100 + '%';
-  snowflake.style.width = (Math.random() * 3 + 2) + 'px';
-  snowflake.style.height = (Math.random() * 3 + 2) + 'px';
-  snowflake.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
-  snowflake.style.borderRadius = '50%';
-  snowflake.style.opacity = '1';
-  snowflake.style.pointerEvents = 'none';
-  snowflake.style.zIndex = '999999';
+  snowflake.style.cssText = `
+    position: fixed !important;
+    top: -10px;
+    left: ${Math.random() * 100}%;
+    width: ${Math.random() * 3 + 2}px;
+    height: ${Math.random() * 3 + 2}px;
+    background: #ffffff !important;
+    border-radius: 50%;
+    opacity: ${Math.random() * 0.3 + 0.4};
+    pointer-events: none;
+    z-index: 999999;
+  `;
   
   document.body.appendChild(snowflake);
   
