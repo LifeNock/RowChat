@@ -7,6 +7,31 @@ function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
+async function uploadFile(file) {
+  try {
+    const supabase = getSupabase();
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from('attachments')
+      .upload(fileName, file);
+    
+    if (error) throw error;
+    
+    const { data: urlData } = supabase.storage
+      .from('attachments')
+      .getPublicUrl(fileName);
+    
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    showToast('Failed to upload file', 'error');
+    return null;
+  }
+}
+
 async function loadMessages(roomId) {
   console.log('Loading messages for room:', roomId);
   
@@ -251,20 +276,9 @@ async function sendMessage() {
     let messageType = 'text';
     
     if (pendingFile) {
-      const fileExt = pendingFile.name.split('.').pop();
-      const filePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
+      fileUrl = await uploadFile(pendingFile);
+      if (!fileUrl) return;
       
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('attachments')
-        .upload(filePath, pendingFile);
-      
-      if (uploadError) throw uploadError;
-      
-      const { data: urlData } = supabase.storage
-        .from('attachments')
-        .getPublicUrl(filePath);
-      
-      fileUrl = urlData.publicUrl;
       fileName = pendingFile.name;
       
       if (pendingFile.type.startsWith('image/')) {
