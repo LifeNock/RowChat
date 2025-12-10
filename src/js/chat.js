@@ -1,7 +1,5 @@
 // ROWCHAT - CHAT
 
-let messagesCache = {};
-
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
