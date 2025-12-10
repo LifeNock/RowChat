@@ -1,31 +1,106 @@
 // ============================================
-// ROWCHAT - CHAT MESSAGING (WITH NEW MESSAGE BANNER)
+// ROWCHAT - CHAT DIAGNOSTIC VERSION
 // ============================================
-
-let replyingTo = null;
-let editingMessage = null;
-let unreadCount = 0;
-let isAtBottom = true;
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-// Add Message to UI
-function addMessageToUI(message) {
+// Load Messages - WITH EXTENSIVE DEBUGGING
+async function loadMessages(roomId) {
+  console.log('═══════════════════════════════════════');
+  console.log('📥 LOADING MESSAGES FOR ROOM:', roomId);
+  console.log('═══════════════════════════════════════');
+  
   const container = document.getElementById('messagesContainer');
-  
-  // Remove welcome message if present
-  const welcome = container.querySelector('.welcome-message');
-  if (welcome) welcome.remove();
-  
-  // Check if message already exists
-  if (document.getElementById(`msg-${message.id}`)) {
+  if (!container) {
+    console.error('❌ messagesContainer not found!');
     return;
   }
   
-  const user = getUser(message.user_id);
-  const isOwn = message.user_id === currentUser.id;
+  container.innerHTML = '<div style="padding: 20px; text-align: center;">Loading messages...</div>';
+  
+  try {
+    const supabase = getSupabase();
+    
+    console.log('🔍 Fetching messages from database...');
+    
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true })
+      .limit(100);
+    
+    console.log('📊 Query result:', {
+      messageCount: messages ? messages.length : 0,
+      error: error,
+      messages: messages
+    });
+    
+    if (error) {
+      console.error('❌ Database error:', error);
+      container.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Error: ${error.message}</div>`;
+      throw error;
+    }
+    
+    if (!messages || messages.length === 0) {
+      console.log('📭 No messages found for this room');
+      container.innerHTML = `
+        <div class="welcome-message">
+          <div class="welcome-icon">💬</div>
+          <h3>No messages yet</h3>
+          <p>Be the first to send a message!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    console.log('✅ Found', messages.length, 'messages. Rendering...');
+    
+    container.innerHTML = '';
+    
+    messages.forEach((message, index) => {
+      console.log(`Rendering message ${index + 1}:`, {
+        id: message.id,
+        user: message.username,
+        content: message.content.substring(0, 50)
+      });
+      
+      addMessageToUI(message);
+    });
+    
+    console.log('✅ All messages rendered successfully!');
+    
+    // Scroll to bottom
+    setTimeout(() => {
+      container.scrollTop = container.scrollHeight;
+    }, 100);
+    
+  } catch (error) {
+    console.error('❌ Error loading messages:', error);
+    container.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Failed to load messages</div>`;
+  }
+}
+
+// Add Message to UI
+function addMessageToUI(message) {
+  const container = document.getElementById('messagesContainer');
+  if (!container) {
+    console.error('❌ Cannot add message - container not found');
+    return;
+  }
+  
+  // Check if message already exists
+  if (document.getElementById(`msg-${message.id}`)) {
+    console.log('⚠️ Message already exists, skipping:', message.id);
+    return;
+  }
+  
+  console.log('➕ Adding message to UI:', message.id);
+  
+  const user = getUser ? getUser(message.user_id) : { username: message.username || 'Unknown' };
+  const isOwn = currentUser && message.user_id === currentUser.id;
   
   const msgDiv = document.createElement('div');
   msgDiv.className = 'message';
@@ -34,75 +109,33 @@ function addMessageToUI(message) {
   // Avatar
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
-  if (user && user.avatar_url) {
-    avatar.innerHTML = `<img src="${user.avatar_url}" alt="${user.username}">`;
+  if (user.avatar_url) {
+    avatar.innerHTML = `<img src="${user.avatar_url}">`;
   } else {
-    avatar.textContent = (message.username || (user ? user.username : 'U')).charAt(0).toUpperCase();
+    avatar.textContent = message.username ? message.username.charAt(0).toUpperCase() : 'U';
   }
   
-  // Content wrapper
+  // Content
   const contentWrapper = document.createElement('div');
-  contentWrapper.className = 'message-content-wrapper';
+  contentWrapper.style.flex = '1';
   
-  // Header
   const header = document.createElement('div');
   header.className = 'message-header';
   
   const username = document.createElement('span');
   username.className = 'message-username';
-  username.textContent = message.username || (user ? user.username : 'Unknown');
+  username.textContent = message.username || user.username || 'Unknown';
   
   const timestamp = document.createElement('span');
   timestamp.className = 'message-timestamp';
-  timestamp.textContent = formatTime(message.created_at);
+  timestamp.textContent = formatTime ? formatTime(message.created_at) : new Date(message.created_at).toLocaleTimeString();
   
   header.appendChild(username);
   header.appendChild(timestamp);
   
-  if (message.edited_at) {
-    const edited = document.createElement('span');
-    edited.className = 'message-timestamp';
-    edited.textContent = '(edited)';
-    edited.style.marginLeft = '4px';
-    header.appendChild(edited);
-  }
-  
-  // Content
   const content = document.createElement('div');
   content.className = 'message-content';
-  content.innerHTML = processMessageContent(message.content, message.message_type, message.file_url);
-  
-  // Actions (only for own messages)
-  if (isOwn) {
-    const actions = document.createElement('div');
-    actions.className = 'message-actions';
-    actions.style.cssText = 'display: none; position: absolute; top: -10px; right: 10px; background: var(--bg-tertiary); border-radius: 6px; padding: 4px; gap: 4px;';
-    
-    const editBtn = document.createElement('button');
-    editBtn.className = 'icon-btn';
-    editBtn.textContent = '✏️';
-    editBtn.title = 'Edit';
-    editBtn.onclick = () => startEdit(message);
-    
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'icon-btn';
-    deleteBtn.textContent = '🗑️';
-    deleteBtn.title = 'Delete';
-    deleteBtn.onclick = () => deleteMessage(message.id);
-    
-    actions.appendChild(editBtn);
-    actions.appendChild(deleteBtn);
-    
-    msgDiv.style.position = 'relative';
-    msgDiv.appendChild(actions);
-    
-    msgDiv.addEventListener('mouseenter', () => {
-      actions.style.display = 'flex';
-    });
-    msgDiv.addEventListener('mouseleave', () => {
-      actions.style.display = 'none';
-    });
-  }
+  content.textContent = message.content;
   
   contentWrapper.appendChild(header);
   contentWrapper.appendChild(content);
@@ -112,352 +145,132 @@ function addMessageToUI(message) {
   
   container.appendChild(msgDiv);
   
-  // Check if user is at bottom before adding message
-  checkScrollPosition();
-  
-  // If at bottom or own message, scroll down
-  if (isAtBottom || isOwn) {
-    scrollToBottom();
-  } else {
-    // User is scrolled up, increment unread
-    if (!isOwn) {
-      unreadCount++;
-      showNewMessageBanner();
-    }
-  }
+  console.log('✅ Message added:', message.id);
 }
 
-// Check Scroll Position
-function checkScrollPosition() {
-  const container = document.getElementById('messagesContainer');
-  const threshold = 100; // pixels from bottom
-  isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
-}
-
-// Scroll to Bottom
-function scrollToBottom() {
-  const container = document.getElementById('messagesContainer');
-  container.scrollTop = container.scrollHeight;
-  unreadCount = 0;
-  hideNewMessageBanner();
-}
-
-// Show New Message Banner
-function showNewMessageBanner() {
-  let banner = document.getElementById('newMessageBanner');
-  
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'newMessageBanner';
-    banner.style.cssText = `
-      position: absolute;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--accent);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
-      cursor: pointer;
-      z-index: 1000;
-      font-size: 14px;
-      font-weight: 600;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      animation: slideInUp 0.3s ease;
-    `;
-    banner.onclick = scrollToBottom;
-    document.querySelector('.main-content').appendChild(banner);
-  }
-  
-  banner.textContent = `${unreadCount} new message${unreadCount > 1 ? 's' : ''}`;
-  banner.style.display = 'block';
-}
-
-// Hide New Message Banner
-function hideNewMessageBanner() {
-  const banner = document.getElementById('newMessageBanner');
-  if (banner) {
-    banner.style.display = 'none';
-  }
-}
-
-// Process Message Content
-function processMessageContent(content, type, fileUrl) {
-  if (type === 'image' && fileUrl) {
-    return `${escapeHtml(content)}<br><img src="${fileUrl}" onclick="openImageModal('${fileUrl}')" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;">`;
-  }
-  
-  if (type === 'video' && fileUrl) {
-    return `${escapeHtml(content)}<br><video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;"><source src="${fileUrl}"></video>`;
-  }
-  
-  if (type === 'file' && fileUrl) {
-    return `${escapeHtml(content)}<br><a href="${fileUrl}" target="_blank" style="color: var(--accent);">📎 Download File</a>`;
-  }
-  
-  // Process mentions and links
-  let processed = escapeHtml(content);
-  
-  // Convert URLs to links
-  processed = processed.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color: var(--accent);">$1</a>');
-  
-  // Convert @mentions
-  processed = processed.replace(/@(\w+)/g, '<span style="background: var(--accent-light); color: var(--accent); padding: 2px 4px; border-radius: 4px;">@$1</span>');
-  
-  return processed;
-}
-
-// Send Message
+// Send Message - WITH DEBUGGING
 async function sendMessage() {
+  console.log('═══════════════════════════════════════');
+  console.log('📤 SENDING MESSAGE');
+  console.log('═══════════════════════════════════════');
+  
   const input = document.getElementById('messageInput');
+  if (!input) {
+    console.error('❌ messageInput not found!');
+    return;
+  }
+  
   const content = input.value.trim();
   
-  if (!content && !window.pendingFile) {
+  if (!content) {
+    console.log('⚠️ Empty message, not sending');
     return;
   }
   
   if (!currentRoom && !currentDM) {
+    console.error('❌ No room or DM selected!');
     showToast('Please select a room or DM first', 'warning');
     return;
   }
   
-  const sendBtn = document.getElementById('sendBtn');
-  sendBtn.disabled = true;
+  console.log('📝 Message content:', content);
+  console.log('📍 Current room:', currentRoom);
+  console.log('👤 Current user:', currentUser);
+  
+  const roomId = currentRoom ? currentRoom.id : currentDM.id;
   
   try {
     const supabase = getSupabase();
     
-    let messageData = {
-      room_id: currentRoom ? currentRoom.id : currentDM.id,
+    const messageData = {
+      room_id: roomId,
       user_id: currentUser.id,
       username: currentUser.username,
-      content: content || 'Sent a file',
-      reply_to: replyingTo ? replyingTo.id : null
+      content: content,
+      message_type: 'text',
+      created_at: new Date().toISOString()
     };
     
-    // Handle file upload
-    if (window.pendingFile) {
-      const fileUrl = await uploadFile(window.pendingFile);
-      if (fileUrl) {
-        messageData.file_url = fileUrl;
-        messageData.file_name = window.pendingFile.name;
-        messageData.file_size = window.pendingFile.size;
-        
-        if (window.pendingFile.type.startsWith('image/')) {
-          messageData.message_type = 'image';
-        } else if (window.pendingFile.type.startsWith('video/')) {
-          messageData.message_type = 'video';
-        } else {
-          messageData.message_type = 'file';
-        }
-      }
-      window.pendingFile = null;
-      document.getElementById('filePreviewBar').style.display = 'none';
-    }
-    
-    // If editing
-    if (editingMessage) {
-      await supabase
-        .from('messages')
-        .update({
-          content: content,
-          edited_at: new Date().toISOString()
-        })
-        .eq('id', editingMessage.id);
-      
-      cancelEdit();
-    } else {
-      // Insert new message
-      const { error } = await supabase
-        .from('messages')
-        .insert([messageData]);
-      
-      if (error) throw error;
-    }
-    
-    input.value = '';
-    document.getElementById('charCount').textContent = '';
-    cancelReply();
-  } catch (error) {
-    console.error('Error sending message:', error);
-    showToast('Failed to send message', 'error');
-  }
-  
-  sendBtn.disabled = false;
-}
-
-// Start Edit
-function startEdit(message) {
-  editingMessage = message;
-  const input = document.getElementById('messageInput');
-  input.value = message.content;
-  input.focus();
-  
-  document.getElementById('editBar').style.display = 'flex';
-  cancelReply();
-}
-
-// Cancel Edit
-function cancelEdit() {
-  editingMessage = null;
-  document.getElementById('messageInput').value = '';
-  document.getElementById('editBar').style.display = 'none';
-}
-
-// Delete Message
-async function deleteMessage(messageId) {
-  if (!confirm('Delete this message?')) return;
-  
-  try {
-    const supabase = getSupabase();
-    
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('id', messageId);
-    
-    if (error) throw error;
-    
-    const msgEl = document.getElementById(`msg-${messageId}`);
-    if (msgEl) msgEl.remove();
-  } catch (error) {
-    console.error('Error deleting message:', error);
-    showToast('Failed to delete message', 'error');
-  }
-}
-
-// Set Reply
-function setReply(message) {
-  replyingTo = message;
-  const user = getUser(message.user_id);
-  
-  document.getElementById('replyToUser').textContent = message.username || user.username;
-  document.getElementById('replyToText').textContent = message.content.substring(0, 50) + (message.content.length > 50 ? '...' : '');
-  document.getElementById('replyBar').style.display = 'flex';
-  
-  document.getElementById('messageInput').focus();
-}
-
-// Cancel Reply
-function cancelReply() {
-  replyingTo = null;
-  document.getElementById('replyBar').style.display = 'none';
-}
-
-// Load Messages for Room
-async function loadMessages(roomId) {
-  const container = document.getElementById('messagesContainer');
-  container.innerHTML = '<div class="loading-shimmer" style="height: 100px; border-radius: 8px;"></div>';
-  
-  // Reset unread
-  unreadCount = 0;
-  hideNewMessageBanner();
-  
-  try {
-    const supabase = getSupabase();
+    console.log('💾 Inserting message to database:', messageData);
     
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: true })
-      .limit(100);
+      .insert([messageData])
+      .select()
+      .single();
     
-    if (error) throw error;
-    
-    container.innerHTML = '';
-    
-    if (data.length === 0) {
-      container.innerHTML = `
-        <div class="welcome-message">
-          <div class="welcome-icon">💬</div>
-          <h3>No messages yet</h3>
-          <p>Be the first to send a message!</p>
-        </div>
-      `;
-    } else {
-      data.forEach(message => addMessageToUI(message));
+    if (error) {
+      console.error('❌ Database insert error:', error);
+      showToast('Failed to send message: ' + error.message, 'error');
+      throw error;
     }
     
-    // Cache messages
-    messagesCache[roomId] = data;
+    console.log('✅ Message saved to database:', data);
+    
+    // Clear input
+    input.value = '';
+    
+    // IMPORTANT: Manually add the message to UI since realtime might be broken
+    console.log('➕ Manually adding message to UI...');
+    addMessageToUI(data);
+    
+    console.log('✅ Message sent successfully!');
+    
   } catch (error) {
-    console.error('Error loading messages:', error);
-    container.innerHTML = `
-      <div class="welcome-message">
-        <p style="color: var(--danger);">Error loading messages</p>
-      </div>
-    `;
+    console.error('❌ Error sending message:', error);
+    showToast('Failed to send message', 'error');
   }
 }
 
-// Message Input Handling
-const messageInput = document.getElementById('messageInput');
-
-messageInput?.addEventListener('input', (e) => {
-  const length = e.target.value.length;
-  const counter = document.getElementById('charCount');
+// Check Realtime Status
+function checkRealtimeStatus() {
+  console.log('═══════════════════════════════════════');
+  console.log('🔌 CHECKING REALTIME STATUS');
+  console.log('═══════════════════════════════════════');
   
-  if (length > 1800) {
-    counter.textContent = `${length}/2000`;
-    counter.classList.add('warning');
+  const supabase = getSupabase();
+  
+  // Check if subscriptions exist
+  if (supabase.getChannels) {
+    const channels = supabase.getChannels();
+    console.log('📡 Active channels:', channels.length);
+    channels.forEach((channel, index) => {
+      console.log(`Channel ${index + 1}:`, {
+        topic: channel.topic,
+        state: channel.state
+      });
+    });
   } else {
-    counter.textContent = '';
-    counter.classList.remove('warning');
+    console.log('⚠️ Cannot check channels');
   }
   
-  // Update typing status
-  updateTypingStatus(true);
-});
+  console.log('═══════════════════════════════════════');
+}
 
-messageInput?.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-});
-
-// Scroll listener
-const messagesContainer = document.getElementById('messagesContainer');
-messagesContainer?.addEventListener('scroll', checkScrollPosition);
-
-// Typing Status
-let typingTimeout;
-async function updateTypingStatus(isTyping) {
-  if (!currentUser || (!currentRoom && !currentDM)) return;
+// Initialize Chat (call this when page loads)
+function initChat() {
+  console.log('🚀 Initializing chat diagnostic mode');
   
-  clearTimeout(typingTimeout);
+  // Check realtime status every 5 seconds
+  setInterval(checkRealtimeStatus, 5000);
   
-  try {
-    const supabase = getSupabase();
-    
-    await supabase
-      .from('presence')
-      .update({
-        is_typing: isTyping,
-        typing_in_room: currentRoom ? currentRoom.id : currentDM.id
-      })
-      .eq('user_id', currentUser.id);
-    
-    if (isTyping) {
-      typingTimeout = setTimeout(() => updateTypingStatus(false), 3000);
-    }
-  } catch (error) {
-    console.error('Error updating typing status:', error);
+  // Listen for Enter key
+  const input = document.getElementById('messageInput');
+  if (input) {
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
   }
 }
 
-// Open Image Modal
-function openImageModal(url) {
-  const modal = document.getElementById('imageModal');
-  const img = document.getElementById('modalImage');
-  img.src = url;
-  modal.classList.add('active');
+// Call init when DOM loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initChat);
+} else {
+  initChat();
 }
 
-// Close Image Modal
-function closeImageModal() {
-  document.getElementById('imageModal').classList.remove('active');
-}
-
-console.log('Chat.js loaded (WITH NEW MESSAGE BANNER)');
+console.log('💬 Chat.js loaded (DIAGNOSTIC VERSION)');
