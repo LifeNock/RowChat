@@ -9,9 +9,9 @@ function createSnowflake() {
   snowflake.style.left = Math.random() * 100 + '%';
   snowflake.style.width = (Math.random() * 3 + 2) + 'px';
   snowflake.style.height = (Math.random() * 3 + 2) + 'px';
-  snowflake.style.backgroundColor = 'white';
+  snowflake.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
   snowflake.style.borderRadius = '50%';
-  snowflake.style.opacity = Math.random() * 0.3 + 0.3;
+  snowflake.style.opacity = '1';
   snowflake.style.pointerEvents = 'none';
   snowflake.style.zIndex = '999999';
   
