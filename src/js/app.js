@@ -1,5 +1,5 @@
 // ============================================
-// ROWCHAT - MAIN APPLICATION (REALTIME FIXED)
+// ROWCHAT - MAIN APPLICATION (WITH ONLINE STATUS & BADGES)
 // ============================================
 
 let currentUser = null;
@@ -9,6 +9,7 @@ let usersCache = {};
 let roomsCache = {};
 let messagesCache = {};
 let onlineUsers = {};
+let unreadRooms = {}; // Track unread messages per room
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -67,6 +68,7 @@ async function initializeApp() {
     await loadUsers();
     await loadRooms();
     await loadFriends();
+    await loadOnlineUsers();
     
     // Update UI
     updateUserUI();
@@ -77,6 +79,9 @@ async function initializeApp() {
     // Update presence
     await updatePresence();
     setInterval(updatePresence, 30000); // Every 30 seconds
+    
+    // Refresh online users periodically
+    setInterval(loadOnlineUsers, 10000); // Every 10 seconds
     
     // Apply user theme and font
     if (currentUser.theme) {
@@ -97,6 +102,71 @@ async function initializeApp() {
     showLoading(false);
     showToast('Failed to initialize app', 'error');
   }
+}
+
+// Load Online Users
+async function loadOnlineUsers() {
+  try {
+    const supabase = getSupabase();
+    
+    const { data, error } = await supabase
+      .from('presence')
+      .select('*')
+      .eq('is_online', true)
+      .gte('last_seen', new Date(Date.now() - 60000).toISOString()); // Active in last 60 seconds
+    
+    if (error) throw error;
+    
+    // Clear old online users
+    onlineUsers = {};
+    
+    // Update online users
+    data.forEach(presence => {
+      onlineUsers[presence.user_id] = presence;
+    });
+    
+    console.log('Online users loaded:', Object.keys(onlineUsers).length);
+    
+    // Update room list with online counts
+    updateRoomOnlineCounts();
+    
+    // Update friends list with online status
+    if (currentFriendTab) {
+      loadFriends();
+    }
+  } catch (error) {
+    console.error('Error loading online users:', error);
+  }
+}
+
+// Update Room Online Counts
+function updateRoomOnlineCounts() {
+  document.querySelectorAll('.room-item').forEach(roomEl => {
+    const roomId = parseInt(roomEl.dataset.roomId);
+    if (!roomId) return;
+    
+    const room = roomsCache[roomId];
+    if (!room) return;
+    
+    // Count online users in this room
+    let onlineCount = 0;
+    if (room.members) {
+      room.members.forEach(memberId => {
+        if (onlineUsers[memberId]) {
+          onlineCount++;
+        }
+      });
+    }
+    
+    // Update online indicator
+    const onlineIndicator = roomEl.querySelector('.room-online-indicator');
+    if (onlineIndicator && onlineCount > 0) {
+      onlineIndicator.textContent = `${onlineCount} online`;
+      onlineIndicator.style.display = 'block';
+    } else if (onlineIndicator) {
+      onlineIndicator.style.display = 'none';
+    }
+  });
 }
 
 // Update User UI
@@ -308,7 +378,83 @@ function handleMessageInsert(message) {
     console.log('Message is for current DM, adding to UI');
     addMessageToUI(message);
   } else {
-    console.log('Message is for different room, ignoring');
+    console.log('Message is for different room, showing badge');
+    // Message for another room - show badge
+    if (!unreadRooms[message.room_id]) {
+      unreadRooms[message.room_id] = 0;
+    }
+    unreadRooms[message.room_id]++;
+    updateRoomBadges();
+  }
+}
+
+// Update Room Badges
+function updateRoomBadges() {
+  // Update room list badges
+  document.querySelectorAll('.room-item').forEach(roomEl => {
+    const roomId = parseInt(roomEl.dataset.roomId);
+    const unreadCount = unreadRooms[roomId] || 0;
+    
+    let badge = roomEl.querySelector('.unread-badge');
+    
+    if (unreadCount > 0) {
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'unread-badge';
+        roomEl.appendChild(badge);
+      }
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+      badge.style.cssText = `
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: #f23f43;
+        color: white;
+        border-radius: 10px;
+        padding: 2px 6px;
+        font-size: 11px;
+        font-weight: 700;
+        min-width: 18px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      `;
+    } else if (badge) {
+      badge.remove();
+    }
+  });
+  
+  // Update tab badge (red dot)
+  updateTabBadge();
+}
+
+// Update Tab Badge (Red Dot)
+function updateTabBadge() {
+  const totalUnread = Object.values(unreadRooms).reduce((a, b) => a + b, 0);
+  const roomsTab = document.querySelector('.nav-tab[data-tab="rooms"]');
+  
+  if (!roomsTab) return;
+  
+  let redDot = roomsTab.querySelector('.notification-dot');
+  
+  if (totalUnread > 0) {
+    if (!redDot) {
+      redDot = document.createElement('div');
+      redDot.className = 'notification-dot';
+      redDot.style.cssText = `
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 8px;
+        height: 8px;
+        background: #f23f43;
+        border-radius: 50%;
+        box-shadow: 0 0 0 2px var(--bg-primary);
+      `;
+      roomsTab.style.position = 'relative';
+      roomsTab.appendChild(redDot);
+    }
+  } else if (redDot) {
+    redDot.remove();
   }
 }
 
@@ -335,13 +481,31 @@ function handleMessageDelete(message) {
 function handlePresenceUpdate(payload) {
   if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
     const presence = payload.new;
-    onlineUsers[presence.user_id] = presence;
     
-    // Update online count if on current room
-    if (currentRoom) {
-      updateOnlineUsersInRoom(currentRoom.id);
+    if (presence.is_online) {
+      onlineUsers[presence.user_id] = presence;
+    } else {
+      delete onlineUsers[presence.user_id];
+    }
+    
+    // Update UI
+    updateRoomOnlineCounts();
+    
+    // Update friends list if visible
+    if (currentFriendTab) {
+      loadFriends();
     }
   }
+}
+
+// Select Room (clear unread for this room)
+function selectRoom(roomId) {
+  // Clear unread count
+  delete unreadRooms[roomId];
+  updateRoomBadges();
+  
+  // Continue with normal room selection
+  // (rest of selectRoom function)
 }
 
 // Toggle User Menu
@@ -459,4 +623,4 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-console.log('App.js loaded (REALTIME FIXED)');
+console.log('App.js loaded (WITH ONLINE STATUS & NOTIFICATION BADGES)');
