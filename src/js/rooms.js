@@ -1,5 +1,5 @@
 // ============================================
-// ROWCHAT - ROOMS (SIMPLE WORKING VERSION)
+// ROWCHAT - ROOMS (FIXED: NO DMS + ONLINE STATUS)
 // ============================================
 
 function getSupabase() {
@@ -11,12 +11,16 @@ async function loadRooms() {
   try {
     const supabase = getSupabase();
     
+    // IMPORTANT: Only get actual rooms, not DMs
     const { data: rooms, error } = await supabase
       .from('rooms')
       .select('*')
+      .eq('is_dm', false)  // Filter out DMs
       .order('created_at', { ascending: false });
     
     if (error) throw error;
+    
+    console.log('Raw rooms from database:', rooms);
     
     // Load members for each room
     for (const room of rooms) {
@@ -30,13 +34,13 @@ async function loadRooms() {
     }
     
     renderRoomList(rooms);
-    console.log('Loaded rooms:', rooms.length);
+    console.log('Loaded rooms (not DMs):', rooms.length);
   } catch (error) {
     console.error('Error loading rooms:', error);
   }
 }
 
-// Render Room List - SIMPLE VERSION THAT WORKS
+// Render Room List
 function renderRoomList(rooms) {
   const container = document.getElementById('roomsList');
   if (!container) return;
@@ -44,22 +48,29 @@ function renderRoomList(rooms) {
   container.innerHTML = '';
   
   if (rooms.length === 0) {
-    container.innerHTML = '<p style="padding: 12px; text-align: center; color: var(--text-tertiary);">No rooms yet</p>';
+    container.innerHTML = '<p style="padding: 12px; text-align: center; color: var(--text-tertiary);">No rooms yet. Create one!</p>';
     return;
   }
+  
+  console.log('Rendering rooms. Online users:', onlineUsers);
   
   rooms.forEach(room => {
     const roomDiv = document.createElement('div');
     roomDiv.className = 'room-item';
     roomDiv.dataset.roomId = room.id;
     
-    // Count online
+    // Count online members - FIX: Check properly
     let onlineCount = 0;
-    if (room.members && typeof onlineUsers !== 'undefined') {
-      room.members.forEach(mid => {
-        if (onlineUsers[mid]) onlineCount++;
+    if (room.members && Array.isArray(room.members)) {
+      room.members.forEach(memberId => {
+        // Check if user is in onlineUsers object AND is_online is true
+        if (onlineUsers && onlineUsers[memberId] && onlineUsers[memberId].is_online) {
+          onlineCount++;
+        }
       });
     }
+    
+    console.log(`Room "${room.name}" has ${room.members ? room.members.length : 0} members, ${onlineCount} online`);
     
     // Unread count
     const unread = (typeof unreadRooms !== 'undefined') ? (unreadRooms[room.id] || 0) : 0;
@@ -87,7 +98,7 @@ function renderRoomList(rooms) {
     
     roomDiv.innerHTML = html;
     
-    // Click handler - use function scope
+    // Click handler
     roomDiv.addEventListener('click', function() {
       selectRoom(room);
     });
@@ -96,7 +107,7 @@ function renderRoomList(rooms) {
   });
 }
 
-// Select Room - SIMPLIFIED
+// Select Room
 function selectRoom(room) {
   console.log('Selecting room:', room.name);
   
@@ -150,9 +161,13 @@ async function loadRoomMembers(roomId) {
     
     container.innerHTML = '';
     
+    console.log('Room members:', data);
+    
     data.forEach(member => {
       const user = getUser(member.user_id);
-      const online = typeof onlineUsers !== 'undefined' && onlineUsers[member.user_id];
+      const isOnline = onlineUsers && onlineUsers[member.user_id] && onlineUsers[member.user_id].is_online;
+      
+      console.log(`Member ${user.username}: online=${isOnline}`);
       
       const div = document.createElement('div');
       div.className = 'member-item';
@@ -162,7 +177,7 @@ async function loadRoomMembers(roomId) {
           <div class="dm-avatar" style="width: 32px; height: 32px;">
             ${user.avatar_url ? `<img src="${user.avatar_url}">` : user.username.charAt(0).toUpperCase()}
           </div>
-          ${online ? `<div style="position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; background: #43b581; border: 2px solid var(--bg-secondary); border-radius: 50%;"></div>` : ''}
+          ${isOnline ? `<div style="position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; background: #43b581; border: 2px solid var(--bg-secondary); border-radius: 50%;"></div>` : ''}
         </div>
         <span>${escapeHtml(user.username)}</span>
       `;
@@ -226,7 +241,8 @@ async function createRoom() {
         name: name,
         description: description,
         icon: icon,
-        created_by: currentUser.id
+        created_by: currentUser.id,
+        is_dm: false  // IMPORTANT: Mark as NOT a DM
       }])
       .select()
       .single();
@@ -333,4 +349,4 @@ async function deleteRoom(roomId) {
   }
 }
 
-console.log('Rooms.js loaded (SIMPLE WORKING VERSION)');
+console.log('Rooms.js loaded (FIXED: No DMs + Online Status)');
