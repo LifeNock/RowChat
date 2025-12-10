@@ -1,1 +1,101 @@
+/* GIF PICKER STYLES */
 
+.gif-picker-modal {
+  display: none;
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  width: 400px;
+  height: 500px;
+  background: var(--bg-modal);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px var(--shadow);
+  z-index: 2000;
+  overflow: hidden;
+}
+
+.gif-picker-modal.active {
+  display: flex;
+  flex-direction: column;
+}
+
+.gif-picker-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.gif-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gif-picker-header input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.gif-picker-header input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.gif-picker-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  align-content: start;
+}
+
+.gif-picker-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gif-picker-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gif-picker-grid::-webkit-scrollbar-thumb {
+  background: var(--bg-input);
+  border-radius: 4px;
+}
+
+.gif-item {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: var(--bg-tertiary);
+}
+
+.gif-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.gif-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Message GIF Display */
+.message-content img[data-gif="true"] {
+  max-width: 300px;
+  max-height: 300px;
+  border-radius: 8px;
+  cursor: pointer;
+}
