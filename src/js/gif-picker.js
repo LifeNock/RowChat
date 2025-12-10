@@ -1,12 +1,11 @@
-// ROWCHAT - GIF PICKER (Tenor API)
+// ROWCHAT - GIF PICKER (Giphy API)
 
-const TENOR_API_KEY = 'AIzaSyAKq02bLq-16gYVGPTONEQF4f-PdGXH1z0'; // Public Tenor API key
+const GIPHY_API_KEY = 'dc6zaTOxFJmzC'; // Public Giphy beta key
 
 let gifPickerModal = null;
 let currentGifSearch = '';
 
 function initGifPicker() {
-  // Create GIF picker modal
   gifPickerModal = document.createElement('div');
   gifPickerModal.id = 'gifPickerModal';
   gifPickerModal.className = 'gif-picker-modal';
@@ -26,7 +25,6 @@ function initGifPicker() {
   
   document.body.appendChild(gifPickerModal);
   
-  // Add GIF button to message input
   const messageWrapper = document.querySelector('.message-input-wrapper');
   if (messageWrapper) {
     const gifBtn = document.createElement('button');
@@ -39,7 +37,6 @@ function initGifPicker() {
     messageWrapper.insertBefore(gifBtn, fileBtn.nextSibling);
   }
   
-  // Search handler
   const searchInput = document.getElementById('gifSearchInput');
   searchInput.addEventListener('input', debounce((e) => {
     searchGifs(e.target.value);
@@ -50,7 +47,6 @@ function openGifPicker() {
   gifPickerModal.classList.add('active');
   document.getElementById('gifSearchInput').focus();
   
-  // Load trending GIFs
   if (!currentGifSearch) {
     loadTrendingGifs();
   }
@@ -73,11 +69,17 @@ async function searchGifs(query) {
   grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Searching...</div>';
   
   try {
-    const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&limit=20`;
+    const url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=20&rating=g`;
     const response = await fetch(url);
     const data = await response.json();
     
-    displayGifs(data.results);
+    console.log('Giphy search response:', data);
+    
+    if (data.data && data.data.length > 0) {
+      displayGifs(data.data);
+    } else {
+      grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No GIFs found</div>';
+    }
   } catch (error) {
     console.error('Error searching GIFs:', error);
     grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--danger);">Failed to load GIFs</div>';
@@ -89,11 +91,17 @@ async function loadTrendingGifs() {
   grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Loading trending...</div>';
   
   try {
-    const url = `https://tenor.googleapis.com/v2/featured?key=${TENOR_API_KEY}&limit=20`;
+    const url = `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=g`;
     const response = await fetch(url);
     const data = await response.json();
     
-    displayGifs(data.results);
+    console.log('Giphy trending response:', data);
+    
+    if (data.data && data.data.length > 0) {
+      displayGifs(data.data);
+    } else {
+      grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No trending GIFs</div>';
+    }
   } catch (error) {
     console.error('Error loading trending GIFs:', error);
     grid.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--danger);">Failed to load GIFs</div>';
@@ -115,14 +123,14 @@ function displayGifs(gifs) {
     gifItem.className = 'gif-item';
     
     const img = document.createElement('img');
-    img.src = gif.media_formats.tinygif.url;
-    img.alt = gif.content_description;
+    img.src = gif.images.fixed_width.url;
+    img.alt = gif.title;
     img.loading = 'lazy';
     
     gifItem.appendChild(img);
     
     gifItem.onclick = () => {
-      sendGif(gif.media_formats.gif.url, gif.content_description);
+      sendGif(gif.images.original.url, gif.title);
     };
     
     grid.appendChild(gifItem);
@@ -178,11 +186,10 @@ function debounce(func, wait) {
   };
 }
 
-// Initialize on load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initGifPicker);
 } else {
   initGifPicker();
 }
 
-console.log('GIF Picker loaded');
+console.log('GIF Picker loaded (Giphy)');
