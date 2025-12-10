@@ -492,3 +492,9 @@
   color: var(--text-secondary);
   font-family: var(--font-family);
 }
+
+/* Force snowflakes to be white */
+[data-theme="christmas"] div[style*="z-index: 999999"] {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+}
