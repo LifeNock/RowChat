@@ -1,11 +1,13 @@
 // ============================================
-// ROWCHAT - CHAT MESSAGING (WITH NEW MESSAGE BANNER)
+// ROWCHAT - CHAT MESSAGING (WITH REPLY & MENTIONS)
 // ============================================
 
 let replyingTo = null;
 let editingMessage = null;
 let unreadCount = 0;
 let isAtBottom = true;
+let mentionSuggestions = [];
+let mentionStartPos = -1;
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -31,6 +33,14 @@ function addMessageToUI(message) {
   msgDiv.className = 'message';
   msgDiv.id = `msg-${message.id}`;
   
+  // Check if this message mentions current user
+  const mentionsMe = message.content && message.content.includes(`@${currentUser.username}`);
+  if (mentionsMe) {
+    msgDiv.style.background = 'rgba(250, 166, 26, 0.1)';
+    msgDiv.style.borderLeft = '3px solid #faa61a';
+    msgDiv.style.paddingLeft = '9px';
+  }
+  
   // Avatar
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
@@ -43,6 +53,15 @@ function addMessageToUI(message) {
   // Content wrapper
   const contentWrapper = document.createElement('div');
   contentWrapper.className = 'message-content-wrapper';
+  contentWrapper.style.flex = '1';
+  
+  // Reply preview (if replying to another message)
+  if (message.reply_to) {
+    const replyPreview = createReplyPreview(message.reply_to);
+    if (replyPreview) {
+      contentWrapper.appendChild(replyPreview);
+    }
+  }
   
   // Header
   const header = document.createElement('div');
@@ -72,12 +91,24 @@ function addMessageToUI(message) {
   content.className = 'message-content';
   content.innerHTML = processMessageContent(message.content, message.message_type, message.file_url);
   
-  // Actions (only for own messages)
+  contentWrapper.appendChild(header);
+  contentWrapper.appendChild(content);
+  
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'message-actions';
+  actions.style.cssText = 'display: none; position: absolute; top: -10px; right: 10px; background: var(--bg-tertiary); border-radius: 6px; padding: 4px; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);';
+  
+  // Reply button (for all messages)
+  const replyBtn = document.createElement('button');
+  replyBtn.className = 'icon-btn';
+  replyBtn.textContent = '↩️';
+  replyBtn.title = 'Reply';
+  replyBtn.onclick = () => setReply(message);
+  actions.appendChild(replyBtn);
+  
+  // Edit/Delete (only for own messages)
   if (isOwn) {
-    const actions = document.createElement('div');
-    actions.className = 'message-actions';
-    actions.style.cssText = 'display: none; position: absolute; top: -10px; right: 10px; background: var(--bg-tertiary); border-radius: 6px; padding: 4px; gap: 4px;';
-    
     const editBtn = document.createElement('button');
     editBtn.className = 'icon-btn';
     editBtn.textContent = '✏️';
@@ -92,20 +123,17 @@ function addMessageToUI(message) {
     
     actions.appendChild(editBtn);
     actions.appendChild(deleteBtn);
-    
-    msgDiv.style.position = 'relative';
-    msgDiv.appendChild(actions);
-    
-    msgDiv.addEventListener('mouseenter', () => {
-      actions.style.display = 'flex';
-    });
-    msgDiv.addEventListener('mouseleave', () => {
-      actions.style.display = 'none';
-    });
   }
   
-  contentWrapper.appendChild(header);
-  contentWrapper.appendChild(content);
+  msgDiv.style.position = 'relative';
+  msgDiv.appendChild(actions);
+  
+  msgDiv.addEventListener('mouseenter', () => {
+    actions.style.display = 'flex';
+  });
+  msgDiv.addEventListener('mouseleave', () => {
+    actions.style.display = 'none';
+  });
   
   msgDiv.appendChild(avatar);
   msgDiv.appendChild(contentWrapper);
@@ -125,6 +153,100 @@ function addMessageToUI(message) {
       showNewMessageBanner();
     }
   }
+}
+
+// Create Reply Preview
+function createReplyPreview(replyToId) {
+  // Find the replied message in the DOM
+  const repliedMsg = messagesCache[currentRoom?.id]?.find(m => m.id === replyToId);
+  
+  if (!repliedMsg) return null;
+  
+  const replyUser = getUser(repliedMsg.user_id);
+  
+  const previewDiv = document.createElement('div');
+  previewDiv.className = 'reply-preview';
+  previewDiv.style.cssText = `
+    background: var(--bg-tertiary);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    cursor: pointer;
+  `;
+  
+  previewDiv.innerHTML = `
+    <div style="color: var(--accent); font-weight: 600; margin-bottom: 2px;">
+      ↩️ Replying to ${escapeHtml(replyUser.username)}
+    </div>
+    <div style="color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      ${escapeHtml(repliedMsg.content.substring(0, 100))}${repliedMsg.content.length > 100 ? '...' : ''}
+    </div>
+  `;
+  
+  // Click to scroll to original message
+  previewDiv.onclick = () => {
+    const originalMsg = document.getElementById(`msg-${replyToId}`);
+    if (originalMsg) {
+      originalMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      originalMsg.style.background = 'rgba(88, 101, 242, 0.2)';
+      setTimeout(() => {
+        originalMsg.style.background = '';
+      }, 2000);
+    }
+  };
+  
+  return previewDiv;
+}
+
+// Process Message Content (with mentions)
+function processMessageContent(content, type, fileUrl) {
+  if (type === 'image' && fileUrl) {
+    return `${processMentions(escapeHtml(content))}<br><img src="${fileUrl}" onclick="openImageModal('${fileUrl}')" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;">`;
+  }
+  
+  if (type === 'video' && fileUrl) {
+    return `${processMentions(escapeHtml(content))}<br><video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;"><source src="${fileUrl}"></video>`;
+  }
+  
+  if (type === 'file' && fileUrl) {
+    return `${processMentions(escapeHtml(content))}<br><a href="${fileUrl}" target="_blank" style="color: var(--accent);">📎 Download File</a>`;
+  }
+  
+  // Process mentions and links
+  let processed = escapeHtml(content);
+  
+  // Convert mentions FIRST (before URLs)
+  processed = processMentions(processed);
+  
+  // Convert URLs to links
+  processed = processed.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color: var(--accent);">$1</a>');
+  
+  return processed;
+}
+
+// Process Mentions
+function processMentions(text) {
+  // Find all @username mentions
+  return text.replace(/@(\w+)/g, (match, username) => {
+    // Check if this user exists
+    const user = Object.values(usersCache).find(u => u.username.toLowerCase() === username.toLowerCase());
+    
+    if (user) {
+      const isCurrentUser = user.id === currentUser.id;
+      return `<span class="mention ${isCurrentUser ? 'mention-me' : ''}" style="
+        background: ${isCurrentUser ? 'rgba(250, 166, 26, 0.2)' : 'rgba(88, 101, 242, 0.2)'};
+        color: ${isCurrentUser ? '#faa61a' : 'var(--accent)'};
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-weight: 600;
+        cursor: pointer;
+      " onclick="openUserProfile(${user.id})">@${escapeHtml(username)}</span>`;
+    }
+    
+    return match;
+  });
 }
 
 // Check Scroll Position
@@ -179,32 +301,6 @@ function hideNewMessageBanner() {
   if (banner) {
     banner.style.display = 'none';
   }
-}
-
-// Process Message Content
-function processMessageContent(content, type, fileUrl) {
-  if (type === 'image' && fileUrl) {
-    return `${escapeHtml(content)}<br><img src="${fileUrl}" onclick="openImageModal('${fileUrl}')" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;">`;
-  }
-  
-  if (type === 'video' && fileUrl) {
-    return `${escapeHtml(content)}<br><video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;"><source src="${fileUrl}"></video>`;
-  }
-  
-  if (type === 'file' && fileUrl) {
-    return `${escapeHtml(content)}<br><a href="${fileUrl}" target="_blank" style="color: var(--accent);">📎 Download File</a>`;
-  }
-  
-  // Process mentions and links
-  let processed = escapeHtml(content);
-  
-  // Convert URLs to links
-  processed = processed.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color: var(--accent);">$1</a>');
-  
-  // Convert @mentions
-  processed = processed.replace(/@(\w+)/g, '<span style="background: var(--accent-light); color: var(--accent); padding: 2px 4px; border-radius: 4px;">@$1</span>');
-  
-  return processed;
 }
 
 // Send Message
@@ -278,6 +374,9 @@ async function sendMessage() {
     input.value = '';
     document.getElementById('charCount').textContent = '';
     cancelReply();
+    
+    // Hide mention suggestions
+    hideMentionSuggestions();
   } catch (error) {
     console.error('Error sending message:', error);
     showToast('Failed to send message', 'error');
@@ -380,6 +479,7 @@ async function loadMessages(roomId) {
     }
     
     // Cache messages
+    if (!messagesCache[roomId]) messagesCache[roomId] = [];
     messagesCache[roomId] = data;
   } catch (error) {
     console.error('Error loading messages:', error);
@@ -406,9 +506,123 @@ messageInput?.addEventListener('input', (e) => {
     counter.classList.remove('warning');
   }
   
+  // Check for mentions
+  handleMentionInput(e);
+  
   // Update typing status
   updateTypingStatus(true);
 });
+
+// Handle Mention Input
+function handleMentionInput(e) {
+  const input = e.target;
+  const cursorPos = input.selectionStart;
+  const text = input.value;
+  
+  // Find if we're typing after an @
+  const beforeCursor = text.substring(0, cursorPos);
+  const lastAtIndex = beforeCursor.lastIndexOf('@');
+  
+  if (lastAtIndex !== -1) {
+    const afterAt = beforeCursor.substring(lastAtIndex + 1);
+    
+    // Check if there's a space after @
+    if (!afterAt.includes(' ')) {
+      // Show mention suggestions
+      mentionStartPos = lastAtIndex;
+      showMentionSuggestions(afterAt);
+      return;
+    }
+  }
+  
+  // Hide suggestions
+  hideMentionSuggestions();
+}
+
+// Show Mention Suggestions
+function showMentionSuggestions(query) {
+  // Get room members
+  let members = [];
+  if (currentRoom && currentRoom.members) {
+    members = currentRoom.members.map(id => usersCache[id]).filter(u => u);
+  }
+  
+  // Filter by query
+  const filtered = members.filter(u => 
+    u.username.toLowerCase().startsWith(query.toLowerCase())
+  ).slice(0, 5);
+  
+  if (filtered.length === 0) {
+    hideMentionSuggestions();
+    return;
+  }
+  
+  let suggestionsDiv = document.getElementById('mentionSuggestions');
+  
+  if (!suggestionsDiv) {
+    suggestionsDiv = document.createElement('div');
+    suggestionsDiv.id = 'mentionSuggestions';
+    suggestionsDiv.style.cssText = `
+      position: absolute;
+      bottom: 70px;
+      left: 20px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--bg-tertiary);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 300px;
+      z-index: 1000;
+    `;
+    document.querySelector('.chat-input-container').appendChild(suggestionsDiv);
+  }
+  
+  suggestionsDiv.innerHTML = filtered.map((user, index) => `
+    <div class="mention-suggestion" data-index="${index}" style="
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    " onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background=''" onclick="insertMention('${user.username}')">
+      <div class="dm-avatar" style="width: 24px; height: 24px; font-size: 12px;">
+        ${user.avatar_url ? `<img src="${user.avatar_url}">` : user.username.charAt(0).toUpperCase()}
+      </div>
+      <span style="color: var(--text-primary); font-size: 14px;">${escapeHtml(user.username)}</span>
+    </div>
+  `).join('');
+  
+  mentionSuggestions = filtered;
+}
+
+// Hide Mention Suggestions
+function hideMentionSuggestions() {
+  const suggestionsDiv = document.getElementById('mentionSuggestions');
+  if (suggestionsDiv) {
+    suggestionsDiv.remove();
+  }
+  mentionSuggestions = [];
+  mentionStartPos = -1;
+}
+
+// Insert Mention
+function insertMention(username) {
+  const input = document.getElementById('messageInput');
+  const text = input.value;
+  
+  // Replace from @ to cursor position with mention
+  const before = text.substring(0, mentionStartPos);
+  const after = text.substring(input.selectionStart);
+  
+  input.value = before + '@' + username + ' ' + after;
+  
+  // Set cursor after mention
+  const newPos = before.length + username.length + 2;
+  input.setSelectionRange(newPos, newPos);
+  input.focus();
+  
+  hideMentionSuggestions();
+}
 
 messageInput?.addEventListener('keypress', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -460,4 +674,11 @@ function closeImageModal() {
   document.getElementById('imageModal').classList.remove('active');
 }
 
-console.log('Chat.js loaded (WITH NEW MESSAGE BANNER)');
+// Open User Profile (placeholder)
+function openUserProfile(userId) {
+  const user = getUser(userId);
+  showToast(`Profile: ${user.username}`, 'info');
+  // TODO: Implement user profile modal
+}
+
+console.log('Chat.js loaded (WITH REPLY & MENTIONS)');
