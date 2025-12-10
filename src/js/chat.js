@@ -230,8 +230,9 @@ async function sendMessage() {
   if (!input) return;
   
   const content = input.value.trim();
+  const pendingFile = window.pendingFile;
   
-  if (!content) return;
+  if (!content && !pendingFile) return;
   
   if (!currentRoom && !currentDM) {
     if (typeof showToast === 'function') {
@@ -244,6 +245,39 @@ async function sendMessage() {
   
   try {
     const supabase = getSupabase();
+    
+    let fileUrl = null;
+    let fileName = null;
+    let messageType = 'text';
+    
+    if (pendingFile) {
+      const fileExt = pendingFile.name.split('.').pop();
+      const filePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('attachments')
+        .upload(filePath, pendingFile);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: urlData } = supabase.storage
+        .from('attachments')
+        .getPublicUrl(filePath);
+      
+      fileUrl = urlData.publicUrl;
+      fileName = pendingFile.name;
+      
+      if (pendingFile.type.startsWith('image/')) {
+        messageType = 'image';
+      } else if (pendingFile.type.startsWith('video/')) {
+        messageType = 'video';
+      } else {
+        messageType = 'file';
+      }
+      
+      window.pendingFile = null;
+      cancelFile();
+    }
     
     if (currentEditMessage) {
       const { error } = await supabase
@@ -272,8 +306,10 @@ async function sendMessage() {
       room_id: roomId,
       user_id: currentUser.id,
       username: currentUser.username,
-      content: content,
-      message_type: 'text'
+      content: content || fileName || 'File',
+      message_type: messageType,
+      file_url: fileUrl,
+      file_name: fileName
     };
     
     if (currentReplyTo) {
