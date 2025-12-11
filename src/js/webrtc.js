@@ -1,353 +1,311 @@
-// ROWCHAT - WEBRTC VOICE/VIDEO/SCREEN SHARE
+// ROWCHAT - WEBRTC CALLS (REBUILT)
 
 let localStream = null;
 let remoteStream = null;
 let peerConnection = null;
-let currentCall = null;
-let callChannel = null;
+let callType = null; // 'voice', 'video', 'screen'
+let isInitiator = false;
+let currentCallRoomId = null;
+let signalChannel = null;
 
-const ICE_SERVERS = {
+const config = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' }
   ]
 };
 
-function initCalls() {
-  // Add call buttons to chat header
-  const headerRight = document.querySelector('.chat-header-right');
-  if (headerRight) {
-    const voiceBtn = document.createElement('button');
-    voiceBtn.className = 'icon-btn';
-    voiceBtn.innerHTML = '🎙️';
-    voiceBtn.title = 'Voice Call';
-    voiceBtn.onclick = () => startCall('voice');
-    
-    const videoBtn = document.createElement('button');
-    videoBtn.className = 'icon-btn';
-    videoBtn.innerHTML = '📹';
-    videoBtn.title = 'Video Call';
-    videoBtn.onclick = () => startCall('video');
-    
-    const screenBtn = document.createElement('button');
-    screenBtn.className = 'icon-btn';
-    screenBtn.innerHTML = '🖥️';
-    screenBtn.title = 'Screen Share';
-    screenBtn.onclick = () => startCall('screen');
-    
-    const firstChild = headerRight.children[1];
-    headerRight.insertBefore(screenBtn, firstChild);
-    headerRight.insertBefore(videoBtn, firstChild);
-    headerRight.insertBefore(voiceBtn, firstChild);
+// Initialize call system
+function initWebRTC() {
+  console.log('WebRTC initialized');
+}
+
+// Start a call
+async function startCall(type) {
+  if (!currentRoom) {
+    showToast('Please select a room first', 'warning');
+    return;
   }
   
-  // Create call modal
-  const callModal = document.createElement('div');
-  callModal.id = 'callModal';
-  callModal.className = 'call-modal';
-  callModal.innerHTML = `
+  callType = type;
+  isInitiator = true;
+  currentCallRoomId = currentRoom.id;
+  
+  try {
+    // Get media based on type
+    if (type === 'voice') {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } else if (type === 'video') {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    } else if (type === 'screen') {
+      localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      
+      // Listen for screen share stop
+      localStream.getVideoTracks()[0].onended = () => {
+        endCall();
+      };
+    }
+    
+    showCallUI();
+    setupLocalStream();
+    await createPeerConnection();
+    await subscribeToSignals();
+    
+    showToast(`${type} call started`, 'success');
+  } catch (error) {
+    console.error('Error starting call:', error);
+    showToast('Could not access media devices', 'error');
+    endCall();
+  }
+}
+
+// Join existing call
+async function joinCall(type, roomId) {
+  callType = type;
+  isInitiator = false;
+  currentCallRoomId = roomId;
+  
+  try {
+    // Get media
+    if (type === 'voice') {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } else if (type === 'video') {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    } else if (type === 'screen') {
+      // Joining screen share - only receive
+      localStream = null;
+    }
+    
+    showCallUI();
+    if (localStream) {
+      setupLocalStream();
+    }
+    await createPeerConnection();
+    await subscribeToSignals();
+    
+  } catch (error) {
+    console.error('Error joining call:', error);
+    showToast('Could not join call', 'error');
+    endCall();
+  }
+}
+
+// Setup local stream
+function setupLocalStream() {
+  const localVideo = document.getElementById('localVideo');
+  if (localVideo && localStream) {
+    localVideo.srcObject = localStream;
+    localVideo.muted = true;
+  }
+}
+
+// Create peer connection
+async function createPeerConnection() {
+  peerConnection = new RTCPeerConnection(config);
+  
+  // Add local stream tracks
+  if (localStream) {
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
+  }
+  
+  // Handle incoming tracks
+  peerConnection.ontrack = (event) => {
+    console.log('Received remote track');
+    if (!remoteStream) {
+      remoteStream = new MediaStream();
+    }
+    remoteStream.addTrack(event.track);
+    
+    const remoteVideo = document.getElementById('remoteVideo');
+    if (remoteVideo) {
+      remoteVideo.srcObject = remoteStream;
+    }
+  };
+  
+  // Handle ICE candidates
+  peerConnection.onicecandidate = async (event) => {
+    if (event.candidate) {
+      await sendSignal({
+        type: 'ice-candidate',
+        candidate: event.candidate
+      });
+    }
+  };
+  
+  // Connection state changes
+  peerConnection.onconnectionstatechange = () => {
+    console.log('Connection state:', peerConnection.connectionState);
+    if (peerConnection.connectionState === 'disconnected' || 
+        peerConnection.connectionState === 'failed') {
+      endCall();
+    }
+  };
+  
+  // If initiator, create offer
+  if (isInitiator) {
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    await sendSignal({
+      type: 'offer',
+      offer: offer
+    });
+  }
+}
+
+// Send signal via Supabase
+async function sendSignal(signal) {
+  try {
+    const supabase = getSupabase();
+    await supabase.from('call_signals').insert([{
+      room_id: currentCallRoomId,
+      user_id: currentUser.id,
+      signal: signal
+    }]);
+  } catch (error) {
+    console.error('Error sending signal:', error);
+  }
+}
+
+// Subscribe to signals
+async function subscribeToSignals() {
+  const supabase = getSupabase();
+  
+  signalChannel = supabase
+    .channel(`call_signals:${currentCallRoomId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'call_signals',
+      filter: `room_id=eq.${currentCallRoomId}`
+    }, async (payload) => {
+      const signal = payload.new.signal;
+      const senderId = payload.new.user_id;
+      
+      // Ignore own signals
+      if (senderId === currentUser.id) return;
+      
+      await handleSignal(signal);
+    })
+    .subscribe();
+}
+
+// Handle incoming signal
+async function handleSignal(signal) {
+  if (!peerConnection) return;
+  
+  try {
+    if (signal.type === 'offer') {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.offer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      await sendSignal({
+        type: 'answer',
+        answer: answer
+      });
+    } else if (signal.type === 'answer') {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.answer));
+    } else if (signal.type === 'ice-candidate') {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+    }
+  } catch (error) {
+    console.error('Error handling signal:', error);
+  }
+}
+
+// Show call UI
+function showCallUI() {
+  let modal = document.getElementById('callModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'callModal';
+    modal.className = 'call-modal';
+    document.body.appendChild(modal);
+  }
+  
+  const isVideoCall = callType === 'video' || callType === 'screen';
+  
+  modal.innerHTML = `
     <div class="call-container">
       <div class="call-header">
-        <div class="call-info">
-          <div class="call-title" id="callTitle">Connecting...</div>
-          <div class="call-status" id="callStatus">Calling...</div>
-        </div>
+        <h3>${callType === 'screen' ? 'Screen Share' : callType === 'video' ? 'Video Call' : 'Voice Call'}</h3>
+        <button class="icon-btn" onclick="endCall()">
+          <i data-lucide="x"></i>
+        </button>
       </div>
-      <div class="call-video-container">
-        <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
-        <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+      <div class="call-videos">
+        ${isVideoCall ? `
+          <video id="remoteVideo" autoplay playsinline></video>
+          <video id="localVideo" autoplay playsinline muted></video>
+        ` : `
+          <div class="voice-call-indicator">
+            <i data-lucide="${callType === 'voice' ? 'mic' : 'monitor'}"></i>
+            <p>Call in progress...</p>
+          </div>
+        `}
       </div>
       <div class="call-controls">
-        <button class="call-btn mute-btn" id="muteBtn" onclick="toggleMute()" title="Mute">
-          <span id="muteIcon">🎤</span>
-        </button>
-        <button class="call-btn video-btn" id="videoBtn" onclick="toggleVideo()" title="Camera">
-          <span id="videoIcon">📹</span>
-        </button>
-        <button class="call-btn screen-btn" id="screenBtn" onclick="toggleScreenShare()" title="Share Screen">
-          <span>🖥️</span>
-        </button>
-        <button class="call-btn end-btn" onclick="endCall()" title="End Call">
-          <span>📞</span>
+        ${callType !== 'screen' ? `
+          <button class="call-btn" onclick="toggleMute()" id="muteBtn">
+            <i data-lucide="mic"></i>
+          </button>
+        ` : ''}
+        ${callType === 'video' ? `
+          <button class="call-btn" onclick="toggleVideo()" id="videoBtn">
+            <i data-lucide="video"></i>
+          </button>
+        ` : ''}
+        <button class="call-btn end-btn" onclick="endCall()">
+          <i data-lucide="phone-off"></i>
         </button>
       </div>
     </div>
   `;
   
-  document.body.appendChild(callModal);
+  modal.style.display = 'flex';
   
-  // Subscribe to call signals
-  subscribeToCallSignals();
-}
-
-async function startCall(type) {
-  if (!currentRoom && !currentDM) {
-    showToast('Please select a room or DM first', 'warning');
-    return;
-  }
-  
-  try {
-    currentCall = {
-      type: type,
-      roomId: currentRoom ? currentRoom.id : currentDM.id,
-      initiator: true
-    };
-    
-    // Get media stream
-    if (type === 'screen') {
-      localStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true
-      });
-    } else {
-      localStream = await navigator.mediaDevices.getUserMedia({
-        video: type === 'video',
-        audio: true
-      });
-    }
-    
-    // Show call modal
-    document.getElementById('callModal').classList.add('active');
-    document.getElementById('localVideo').srcObject = localStream;
-    document.getElementById('callTitle').textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Call`;
-    
-    // Hide video elements if voice only
-    if (type === 'voice') {
-      document.getElementById('localVideo').style.display = 'none';
-      document.getElementById('remoteVideo').style.display = 'none';
-      document.getElementById('videoBtn').style.display = 'none';
-    }
-    
-    // Create peer connection
-    peerConnection = new RTCPeerConnection(ICE_SERVERS);
-    
-    // Add local stream
-    localStream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, localStream);
-    });
-    
-    // Handle remote stream
-    peerConnection.ontrack = (event) => {
-      console.log('Received remote track');
-      remoteStream = event.streams[0];
-      document.getElementById('remoteVideo').srcObject = remoteStream;
-      document.getElementById('callStatus').textContent = 'Connected';
-    };
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendSignal({
-          type: 'ice-candidate',
-          candidate: event.candidate
-        });
-      }
-    };
-    
-    // Create and send offer
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    
-    sendSignal({
-      type: 'offer',
-      offer: offer,
-      callType: type
-    });
-    
-  } catch (error) {
-    console.error('Error starting call:', error);
-    showToast('Failed to start call: ' + error.message, 'error');
-    endCall();
+  // Initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
   }
 }
 
-async function handleIncomingCall(signal) {
-  if (signal.type === 'offer') {
-    // Show incoming call notification
-    const accept = confirm(`Incoming ${signal.callType} call. Accept?`);
-    
-    if (!accept) {
-      sendSignal({ type: 'reject' });
-      return;
-    }
-    
-    try {
-      currentCall = {
-        type: signal.callType,
-        roomId: signal.roomId,
-        initiator: false
-      };
-      
-      // Get media stream
-      if (signal.callType === 'screen') {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-      } else {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: signal.callType === 'video',
-          audio: true
-        });
-      }
-      
-      // Show call modal
-      document.getElementById('callModal').classList.add('active');
-      document.getElementById('localVideo').srcObject = localStream;
-      document.getElementById('callTitle').textContent = `${signal.callType.charAt(0).toUpperCase() + signal.callType.slice(1)} Call`;
-      document.getElementById('callStatus').textContent = 'Connecting...';
-      
-      if (signal.callType === 'voice') {
-        document.getElementById('localVideo').style.display = 'none';
-        document.getElementById('remoteVideo').style.display = 'none';
-        document.getElementById('videoBtn').style.display = 'none';
-      }
-      
-      // Create peer connection
-      peerConnection = new RTCPeerConnection(ICE_SERVERS);
-      
-      // Add local stream
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-      });
-      
-      // Handle remote stream
-      peerConnection.ontrack = (event) => {
-        console.log('Received remote track');
-        remoteStream = event.streams[0];
-        document.getElementById('remoteVideo').srcObject = remoteStream;
-        document.getElementById('callStatus').textContent = 'Connected';
-      };
-      
-      // Handle ICE candidates
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          sendSignal({
-            type: 'ice-candidate',
-            candidate: event.candidate
-          });
-        }
-      };
-      
-      // Set remote description and create answer
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.offer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      
-      sendSignal({
-        type: 'answer',
-        answer: answer
-      });
-      
-    } catch (error) {
-      console.error('Error handling incoming call:', error);
-      showToast('Failed to answer call', 'error');
-      endCall();
-    }
-  } else if (signal.type === 'answer' && peerConnection) {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.answer));
-  } else if (signal.type === 'ice-candidate' && peerConnection) {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-  } else if (signal.type === 'end-call') {
-    endCall();
-  }
-}
-
-function sendSignal(signal) {
-  const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  
-  const roomId = currentRoom ? currentRoom.id : (currentDM ? currentDM.id : null);
-  if (!roomId) return;
-  
-  supabase
-    .from('call_signals')
-    .insert([{
-      room_id: roomId,
-      user_id: currentUser.id,
-      signal: signal,
-      created_at: new Date().toISOString()
-    }])
-    .then(({ error }) => {
-      if (error) console.error('Error sending signal:', error);
-    });
-}
-
-function subscribeToCallSignals() {
-  const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  
-  callChannel = supabase
-    .channel('call_signals')
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'call_signals'
-    }, (payload) => {
-      if (payload.new.user_id !== currentUser.id) {
-        handleIncomingCall(payload.new.signal);
-      }
-    })
-    .subscribe();
-}
-
+// Toggle mute
 function toggleMute() {
   if (!localStream) return;
   
   const audioTrack = localStream.getAudioTracks()[0];
   if (audioTrack) {
     audioTrack.enabled = !audioTrack.enabled;
-    document.getElementById('muteIcon').textContent = audioTrack.enabled ? '🎤' : '🔇';
+    const btn = document.getElementById('muteBtn');
+    if (btn) {
+      btn.classList.toggle('muted', !audioTrack.enabled);
+      btn.innerHTML = audioTrack.enabled ? '<i data-lucide="mic"></i>' : '<i data-lucide="mic-off"></i>';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
   }
 }
 
+// Toggle video
 function toggleVideo() {
   if (!localStream) return;
   
   const videoTrack = localStream.getVideoTracks()[0];
   if (videoTrack) {
     videoTrack.enabled = !videoTrack.enabled;
-    document.getElementById('videoIcon').textContent = videoTrack.enabled ? '📹' : '📷';
-  }
-}
-
-async function toggleScreenShare() {
-  try {
-    if (currentCall && currentCall.type === 'screen') {
-      // Stop screen share
-      localStream.getTracks().forEach(track => track.stop());
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localStream = newStream;
-      document.getElementById('localVideo').srcObject = newStream;
-      
-      // Replace track in peer connection
-      const videoTrack = newStream.getVideoTracks()[0];
-      const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-      if (sender) sender.replaceTrack(videoTrack);
-      
-      currentCall.type = 'video';
-    } else {
-      // Start screen share
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      localStream = screenStream;
-      document.getElementById('localVideo').srcObject = screenStream;
-      
-      // Replace track in peer connection
-      const videoTrack = screenStream.getVideoTracks()[0];
-      const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-      if (sender) sender.replaceTrack(videoTrack);
-      
-      currentCall.type = 'screen';
+    const btn = document.getElementById('videoBtn');
+    if (btn) {
+      btn.classList.toggle('muted', !videoTrack.enabled);
+      btn.innerHTML = videoTrack.enabled ? '<i data-lucide="video"></i>' : '<i data-lucide="video-off"></i>';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     }
-  } catch (error) {
-    console.error('Error toggling screen share:', error);
-    showToast('Failed to toggle screen share', 'error');
   }
 }
 
+// End call
 function endCall() {
-  // Send end signal
-  if (currentCall) {
-    sendSignal({ type: 'end-call' });
-  }
+  console.log('Ending call...');
   
   // Stop all tracks
   if (localStream) {
@@ -366,24 +324,32 @@ function endCall() {
     peerConnection = null;
   }
   
-  // Hide call modal
-  document.getElementById('callModal').classList.remove('active');
-  document.getElementById('localVideo').srcObject = null;
-  document.getElementById('remoteVideo').srcObject = null;
+  // Unsubscribe from signals
+  if (signalChannel) {
+    signalChannel.unsubscribe();
+    signalChannel = null;
+  }
   
-  // Reset display
-  document.getElementById('localVideo').style.display = 'block';
-  document.getElementById('remoteVideo').style.display = 'block';
-  document.getElementById('videoBtn').style.display = 'block';
+  // Hide UI
+  const modal = document.getElementById('callModal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.remove();
+  }
   
-  currentCall = null;
+  // Reset state
+  callType = null;
+  isInitiator = false;
+  currentCallRoomId = null;
+  
+  console.log('Call ended');
 }
 
-// Initialize on load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initCalls);
-} else {
-  initCalls();
-}
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+  if (peerConnection) {
+    endCall();
+  }
+});
 
-console.log('WebRTC Calls loaded');
+console.log('WebRTC (REBUILT) loaded');
