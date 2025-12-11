@@ -1,4 +1,4 @@
-// ROWCHAT - ROOMS
+// ROWCHAT - ROOMS (FIXED - NO ICON FIELD)
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -16,6 +16,13 @@ async function loadRooms() {
     if (error) throw error;
     
     const rooms = allRooms.filter(room => room.is_dm !== true);
+    
+    // Sort: announcements first, then by created_at
+    rooms.sort((a, b) => {
+      if (a.is_announcement && !b.is_announcement) return -1;
+      if (!a.is_announcement && b.is_announcement) return 1;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
     
     for (const room of rooms) {
       const { data: members } = await supabase
@@ -49,6 +56,13 @@ function renderRoomList(rooms) {
     roomDiv.className = 'room-item';
     roomDiv.dataset.roomId = room.id;
     
+    // Special styling for announcements
+    if (room.is_announcement) {
+      roomDiv.style.background = 'linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(88, 101, 242, 0.05) 100%)';
+      roomDiv.style.borderLeft = '3px solid var(--accent)';
+      roomDiv.style.fontWeight = '600';
+    }
+    
     let onlineCount = 0;
     if (room.members && typeof onlineUsers !== 'undefined') {
       room.members.forEach(memberId => {
@@ -58,10 +72,13 @@ function renderRoomList(rooms) {
       });
     }
     
+    const icon = room.is_announcement ? '📢' : '#';
+    const lockIcon = room.is_announcement ? '<i data-lucide="lock" style="width: 14px; height: 14px; margin-left: 6px; opacity: 0.6;"></i>' : '';
+    
     roomDiv.innerHTML = `
-      <div class="room-icon">#</div>
+      <div class="room-icon">${icon}</div>
       <div style="flex: 1;">
-        <div class="room-name">${escapeHtml(room.name)}</div>
+        <div class="room-name">${escapeHtml(room.name)}${lockIcon}</div>
         ${onlineCount > 0 ? `<div style="font-size: 11px; color: var(--success); margin-top: 2px;">${onlineCount} online</div>` : ''}
       </div>
     `;
@@ -69,6 +86,11 @@ function renderRoomList(rooms) {
     roomDiv.onclick = () => selectRoom(room);
     container.appendChild(roomDiv);
   });
+  
+  // Re-initialize Lucide icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
 }
 
 function selectRoom(room) {
@@ -78,8 +100,27 @@ function selectRoom(room) {
   document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
   document.querySelector(`.room-item[data-room-id="${room.id}"]`)?.classList.add('active');
   
-  document.getElementById('chatTitle').textContent = `# ${room.name}`;
+  const icon = room.is_announcement ? '📢' : '#';
+  document.getElementById('chatTitle').textContent = `${icon} ${room.name}`;
   document.getElementById('chatDescription').textContent = room.description || '';
+  
+  // Disable input if announcement room and not admin
+  const messageInput = document.getElementById('messageInput');
+  const sendBtn = document.getElementById('sendBtn');
+  
+  if (room.is_announcement && currentUser.role !== 'admin') {
+    if (messageInput) {
+      messageInput.disabled = true;
+      messageInput.placeholder = '🔒 Only admins can post announcements';
+    }
+    if (sendBtn) sendBtn.disabled = true;
+  } else {
+    if (messageInput) {
+      messageInput.disabled = false;
+      messageInput.placeholder = 'Type a message...';
+    }
+    if (sendBtn) sendBtn.disabled = false;
+  }
   
   if (typeof loadMessages === 'function') {
     loadMessages(room.id);
