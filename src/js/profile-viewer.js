@@ -157,13 +157,30 @@ async function openProfileView(userId) {
       bio.style.display = 'block';
     }
     
+    // Show status message if exists
+    if (user.status_message) {
+      const statusDiv = document.createElement('div');
+      statusDiv.className = 'user-status-display';
+      statusDiv.textContent = user.status_message;
+      bio.after(statusDiv);
+    }
+    
     // Check online status
     const isOnline = onlineUsers[userId] && onlineUsers[userId].is_online;
     const status = document.getElementById('profileViewStatus');
-    status.innerHTML = `
-      <div class="friend-status ${isOnline ? 'online' : ''}"></div>
-      <span>${isOnline ? 'Online' : 'Offline'}</span>
-    `;
+    
+    if (isOnline) {
+      status.innerHTML = `
+        <div class="friend-status online"></div>
+        <span>Online</span>
+      `;
+    } else {
+      const lastSeenText = typeof formatLastSeen === 'function' ? formatLastSeen(user.last_seen) : 'Offline';
+      status.innerHTML = `
+        <div class="friend-status"></div>
+        <span class="last-seen-text">Last seen ${lastSeenText}</span>
+      `;
+    }
     
     // Check friendship status
     const { data: friendship } = await supabase
