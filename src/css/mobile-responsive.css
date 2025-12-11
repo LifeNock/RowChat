@@ -1,1 +1,323 @@
+/* MOBILE RESPONSIVE DESIGN */
 
+/* Mobile Breakpoints */
+@media (max-width: 768px) {
+  
+  /* === LAYOUT === */
+  .app-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--bg-tertiary);
+    overflow-y: auto;
+  }
+  
+  .main-content {
+    flex: 1;
+    height: calc(100vh - 40vh);
+  }
+  
+  /* === SIDEBAR === */
+  .sidebar-header {
+    padding: 12px;
+  }
+  
+  .workspace-name {
+    font-size: 18px;
+  }
+  
+  .nav-tabs {
+    display: flex;
+    overflow-x: auto;
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  .nav-tab {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .tab-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .content-section {
+    max-height: 25vh;
+    overflow-y: auto;
+  }
+  
+  .section-header {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .room-item, .dm-item {
+    padding: 10px 12px;
+  }
+  
+  .room-name, .dm-name {
+    font-size: 14px;
+  }
+  
+  .user-section {
+    padding: 10px 12px;
+  }
+  
+  .user-profile {
+    padding: 8px;
+  }
+  
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .user-name {
+    font-size: 13px;
+  }
+  
+  .user-status {
+    font-size: 11px;
+  }
+  
+  /* === CHAT AREA === */
+  .chat-header {
+    padding: 12px;
+    flex-wrap: wrap;
+  }
+  
+  #chatTitle {
+    font-size: 16px;
+  }
+  
+  .chat-description {
+    font-size: 12px;
+  }
+  
+  .chat-header-right {
+    gap: 6px;
+  }
+  
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  /* === MESSAGES === */
+  .messages-container {
+    padding: 12px;
+  }
+  
+  .message {
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .message-username {
+    font-size: 13px;
+  }
+  
+  .message-timestamp {
+    font-size: 10px;
+  }
+  
+  .message-content {
+    font-size: 14px;
+  }
+  
+  /* === INPUT === */
+  .message-input-container {
+    padding: 10px;
+  }
+  
+  .message-input-wrapper {
+    padding: 8px;
+  }
+  
+  #messageInput {
+    font-size: 14px;
+  }
+  
+  .btn-send {
+    width: 36px;
+    height: 36px;
+  }
+  
+  /* === MODALS === */
+  .modal {
+    width: 95vw;
+    max-width: 95vw;
+    margin: 10px;
+  }
+  
+  .modal-body {
+    padding: 16px;
+  }
+  
+  .modal-footer {
+    padding: 12px;
+    gap: 8px;
+  }
+  
+  /* === BUTTONS === */
+  .btn-primary, .btn-secondary {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  
+  /* === DROPDOWNS === */
+  .dropdown-menu {
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+  
+  /* === WHITEBOARD === */
+  #whiteboardCanvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+  
+  /* === TYPING INDICATOR === */
+  .typing-indicator {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  /* === WELCOME MESSAGE === */
+  .welcome-message {
+    padding: 20px;
+  }
+  
+  .welcome-icon {
+    font-size: 48px;
+  }
+  
+  .welcome-message h3 {
+    font-size: 18px;
+  }
+  
+  .welcome-message p {
+    font-size: 13px;
+  }
+}
+
+/* Small Mobile (< 480px) */
+@media (max-width: 480px) {
+  
+  .sidebar {
+    max-height: 35vh;
+  }
+  
+  .main-content {
+    height: calc(100vh - 35vh);
+  }
+  
+  .nav-tab span:not(.tab-icon) {
+    display: none;
+  }
+  
+  .nav-tab {
+    padding: 10px;
+  }
+  
+  .room-description, .dm-preview {
+    display: none;
+  }
+  
+  #chatTitle {
+    font-size: 14px;
+  }
+  
+  .chat-description {
+    display: none;
+  }
+  
+  .online-users {
+    display: none;
+  }
+  
+  .message {
+    padding: 8px;
+  }
+  
+  .message-content {
+    font-size: 13px;
+  }
+}
+
+/* Tablet (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  
+  .sidebar {
+    width: 250px;
+  }
+  
+  .room-description, .dm-preview {
+    font-size: 11px;
+  }
+  
+  .message-content {
+    font-size: 14px;
+  }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  
+  /* Larger tap targets */
+  .icon-btn, button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .room-item, .dm-item {
+    min-height: 52px;
+  }
+  
+  /* Disable hover effects */
+  .room-item:hover,
+  .dm-item:hover,
+  .message:hover {
+    background: inherit;
+    transform: none;
+  }
+  
+  /* Message actions always visible on mobile */
+  .message-actions {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Landscape Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .sidebar {
+    max-height: 50vh;
+  }
+  
+  .main-content {
+    height: calc(100vh - 50vh);
+  }
+}
+
+/* Dark mode adjustments for mobile */
+@media (max-width: 768px) and (prefers-color-scheme: dark) {
+  .sidebar {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+}
