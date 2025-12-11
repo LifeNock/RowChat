@@ -1,1 +1,68 @@
+/* SIMPLE ICON REPLACEMENTS (NO LUCIDE) */
 
+.icon-btn, .tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Icon font styles */
+.icon {
+  font-style: normal;
+  font-weight: normal;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Tab icons */
+.tab-icon {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+/* Button icons */
+.icon-btn .icon {
+  font-size: 20px;
+}
+
+/* Specific icon mappings using Unicode symbols */
+.icon-message-square::before { content: "💬"; }
+.icon-inbox::before { content: "📨"; }
+.icon-users::before { content: "👥"; }
+.icon-plus::before { content: "+"; font-weight: 600; }
+.icon-user-plus::before { content: "➕"; }
+.icon-settings::before { content: "⚙️"; }
+.icon-palette::before { content: "🎨"; }
+.icon-youtube::before { content: "📺"; }
+.icon-info::before { content: "ℹ️"; }
+.icon-mic::before { content: "🎙️"; }
+.icon-video::before { content: "📹"; }
+.icon-monitor::before { content: "🖥️"; }
+.icon-paperclip::before { content: "📎"; }
+.icon-send::before { content: "➤"; }
+.icon-x::before { content: "×"; font-size: 24px; }
+.icon-user::before { content: "👤"; }
+.icon-log-out::before { content: "🚪"; }
+.icon-edit-3::before { content: "✏️"; }
+.icon-trash-2::before { content: "🗑️"; }
+.icon-image::before { content: "🖼️"; }
+.icon-lock::before { content: "🔒"; }
+.icon-phone-off::before { content: "📞"; }
+.icon-mic-off::before { content: "🔇"; }
+.icon-video-off::before { content: "📴"; }
+
+/* Online dot - using CSS instead of emoji */
+.online-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #43b581;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
