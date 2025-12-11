@@ -284,6 +284,14 @@ async function sendMessage() {
     return;
   }
   
+  // Check if announcement room and user is not admin
+  if (currentRoom && currentRoom.is_announcement && currentUser.role !== 'admin') {
+    if (typeof showToast === 'function') {
+      showToast('Only admins can post in announcements', 'error');
+    }
+    return;
+  }
+  
   const roomId = currentRoom ? currentRoom.id : currentDM.id;
   
   try {
