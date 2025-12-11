@@ -20,13 +20,13 @@ function initRolesAndStatus() {
 // Role Badges
 function getRoleBadge(username, role) {
   if (username.toLowerCase() === 'lifenock' || role === 'admin') {
-    return '<span class="role-badge admin-badge">👑 ADMIN</span>';
+    return '<span class="role-badge admin-badge">ADMIN</span>';
   }
   if (role === 'moderator' || role === 'mod') {
-    return '<span class="role-badge mod-badge">🛡️ MOD</span>';
+    return '<span class="role-badge mod-badge">MOD</span>';
   }
   if (role === 'vip') {
-    return '<span class="role-badge vip-badge">⭐ VIP</span>';
+    return '<span class="role-badge vip-badge">VIP</span>';
   }
   return '';
 }
