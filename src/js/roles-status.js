@@ -135,7 +135,7 @@ function createStatusModal() {
     <div class="modal">
       <div class="modal-header">
         <h2>Set Status</h2>
-        <button class="icon-btn" onclick="closeStatusModal()"><i data-lucide="x"></i></button>
+        <button class="icon-btn" onclick="closeStatusModal()"><span class="icon icon-x"></span></button>
       </div>
       <div class="modal-body">
         <div class="status-presets">
@@ -159,11 +159,6 @@ function createStatusModal() {
   `;
   
   document.body.appendChild(modal);
-  
-  // Initialize icons
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
   
   // Add CSS
   const style = document.createElement('style');
@@ -336,18 +331,12 @@ function addStatusButton() {
   if (userMenu) {
     const statusItem = document.createElement('div');
     statusItem.className = 'dropdown-item';
-    statusItem.innerHTML = '<i data-lucide="message-circle"></i> Set Status';
+    statusItem.innerHTML = '<span class="icon">💬</span> Set Status';
     statusItem.onclick = openStatusModal;
     
-    // Insert after profile item
     const firstItem = userMenu.querySelector('.dropdown-item');
     if (firstItem) {
       firstItem.after(statusItem);
-      
-      // Initialize icon
-      if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-      }
     }
   }
 }
