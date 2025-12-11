@@ -9,14 +9,12 @@
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  
   <!-- CSS Files -->
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/themes.css">
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/mobile-responsive.css">
+  <link rel="stylesheet" href="css/simple-icons.css">
   <link rel="stylesheet" href="css/gif-picker-styles.css">
   <link rel="stylesheet" href="css/calls-styles.css">
 </head>
@@ -82,15 +80,15 @@
       <!-- Navigation Tabs -->
       <div class="nav-tabs">
         <button class="nav-tab active" data-tab="rooms" onclick="switchTab('rooms')">
-          <i data-lucide="message-square" class="tab-icon"></i>
+          <span class="icon icon-message-square"></span>
           <span>Rooms</span>
         </button>
         <button class="nav-tab" data-tab="dms" onclick="switchTab('dms')">
-          <i data-lucide="inbox" class="tab-icon"></i>
+          <span class="icon icon-inbox"></span>
           <span>Direct Messages</span>
         </button>
         <button class="nav-tab" data-tab="friends" onclick="switchTab('friends')">
-          <i data-lucide="users" class="tab-icon"></i>
+          <span class="icon icon-users"></span>
           <span>Friends</span>
           <span class="notification-badge" id="friendRequestBadge" style="display: none;">0</span>
         </button>
@@ -101,7 +99,7 @@
         <div class="section-header">
           <span>Rooms</span>
           <button class="icon-btn" onclick="openCreateRoomModal()" title="Create Room">
-            <i data-lucide="plus"></i>
+            <span class="icon icon-plus"></span>
           </button>
         </div>
         <div id="roomsList" class="rooms-list"></div>
@@ -112,7 +110,7 @@
         <div class="section-header">
           <span>Direct Messages</span>
           <button class="icon-btn" onclick="openNewDMModal()" title="New DM">
-            <i data-lucide="plus"></i>
+            <span class="icon icon-plus"></span>
           </button>
         </div>
         <div id="dmsList" class="dms-list"></div>
@@ -123,7 +121,7 @@
         <div class="section-header">
           <span>Friends</span>
           <button class="icon-btn" onclick="openAddFriendModal()" title="Add Friend">
-            <i data-lucide="user-plus"></i>
+            <span class="icon icon-user-plus"></span>
           </button>
         </div>
         <div class="friends-tabs">
@@ -146,7 +144,7 @@
             </div>
           </div>
           <button class="icon-btn">
-            <i data-lucide="settings"></i>
+            <span class="icon icon-settings"></span>
           </button>
         </div>
       </div>
@@ -167,13 +165,13 @@
             <span id="onlineCount">0 online</span>
           </div>
           <button class="icon-btn" onclick="openWhiteboardModal()" title="Start Whiteboard">
-            <i data-lucide="palette"></i>
+            <span class="icon icon-palette"></span>
           </button>
           <button class="icon-btn" onclick="openYoutubeModal()" title="Watch YouTube Together">
-            <i data-lucide="youtube"></i>
+            <span class="icon icon-youtube"></span>
           </button>
           <button class="icon-btn" onclick="toggleRoomInfo()" title="Room Info">
-            <i data-lucide="info"></i>
+            <span class="icon icon-info"></span>
           </button>
         </div>
       </div>
@@ -197,17 +195,17 @@
           <span class="reply-text" id="replyToText"></span>
         </div>
         <button class="icon-btn" onclick="cancelReply()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
 
       <!-- Edit Bar -->
       <div class="edit-bar" id="editBar" style="display: none;">
         <div class="edit-content">
-          <span class="edit-label"><i data-lucide="edit-3"></i> Editing message</span>
+          <span class="edit-label"><span class="icon icon-edit-3"></span> Editing message</span>
         </div>
         <button class="icon-btn" onclick="cancelEdit()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
 
@@ -215,7 +213,7 @@
       <div class="file-preview-bar" id="filePreviewBar" style="display: none;">
         <div class="file-preview" id="filePreview"></div>
         <button class="icon-btn" onclick="cancelFile()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
 
@@ -224,7 +222,7 @@
         <div class="message-input-wrapper">
           <input type="file" id="fileInput" style="display: none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
           <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload File">
-            <i data-lucide="paperclip"></i>
+            <span class="icon icon-paperclip"></span>
           </button>
           <input 
             type="text" 
@@ -235,7 +233,7 @@
           >
           <span class="char-count" id="charCount"></span>
           <button class="btn-send" id="sendBtn" onclick="sendMessage()">
-            <i data-lucide="send"></i>
+            <span class="icon icon-send"></span>
           </button>
         </div>
       </div>
@@ -246,7 +244,7 @@
       <div class="room-info-header">
         <h3>Room Info</h3>
         <button class="icon-btn" onclick="toggleRoomInfo()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="room-info-content" id="roomInfoContent"></div>
@@ -256,17 +254,17 @@
   <!-- User Settings Dropdown -->
   <div class="dropdown-menu" id="userMenu" style="display: none;">
     <div class="dropdown-item" onclick="openProfileModal()">
-      <i data-lucide="user"></i> Edit Profile
+      <span class="icon icon-user"></span> Edit Profile
     </div>
     <div class="dropdown-item" onclick="openThemeModal()">
-      <i data-lucide="palette"></i> Themes & Appearance
+      <span class="icon icon-palette"></span> Themes & Appearance
     </div>
     <div class="dropdown-item" onclick="openSettingsModal()">
-      <i data-lucide="settings"></i> Settings
+      <span class="icon icon-settings"></span> Settings
     </div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item danger" onclick="logout()">
-      <i data-lucide="log-out"></i> Log Out
+      <span class="icon icon-log-out"></span> Log Out
     </div>
   </div>
 
@@ -276,7 +274,7 @@
       <div class="modal-header">
         <h2>Edit Profile</h2>
         <button class="icon-btn" onclick="closeProfileModal()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="modal-body">
@@ -305,9 +303,9 @@
   <div class="modal-overlay" id="themeModal">
     <div class="modal modal-large">
       <div class="modal-header">
-        <h2><i data-lucide="palette"></i> Themes & Appearance</h2>
+        <h2><span class="icon icon-palette"></span> Themes & Appearance</h2>
         <button class="icon-btn" onclick="closeThemeModal()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="modal-body">
@@ -332,7 +330,7 @@
       <div class="modal-header">
         <h2>Create Room</h2>
         <button class="icon-btn" onclick="closeCreateRoomModal()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="modal-body">
@@ -358,7 +356,7 @@
       <div class="modal-header">
         <h2>Add Friend</h2>
         <button class="icon-btn" onclick="closeAddFriendModal()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="modal-body">
@@ -381,7 +379,7 @@
       <div class="modal-header">
         <h2>New Direct Message</h2>
         <button class="icon-btn" onclick="closeNewDMModal()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="modal-body">
@@ -401,7 +399,7 @@
     <div class="modal-content" style="width: 900px; max-width: 95vw; max-height: 90vh; background: var(--bg-primary, #1a1a1a); border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--bg-tertiary, #333); flex-shrink: 0;">
         <h3 style="margin: 0; color: var(--text-primary, #fff); font-size: 18px;">
-          <i data-lucide="palette"></i> Collaborative Whiteboard
+          <span class="icon icon-palette"></span> Collaborative Whiteboard
         </h3>
         <span class="close-btn" onclick="closeWhiteboardModal()" style="font-size: 28px; color: var(--text-secondary, #999); cursor: pointer; line-height: 1; transition: color 0.2s; user-select: none;">&times;</span>
       </div>
@@ -415,10 +413,10 @@
         
         <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: space-between; align-items: center;">
           <button class="btn-secondary" onclick="clearWhiteboard()">
-            <i data-lucide="trash-2"></i> Clear Canvas
+            <span class="icon icon-trash-2"></span> Clear Canvas
           </button>
           <button class="btn-primary" onclick="sendWhiteboardInvite()">
-            <i data-lucide="send"></i> Send Invite
+            <span class="icon icon-send"></span> Send Invite
           </button>
         </div>
       </div>
@@ -434,9 +432,9 @@
   <div class="modal-overlay" id="youtubeModal">
     <div class="modal modal-large">
       <div class="modal-header">
-        <h2><i data-lucide="youtube"></i> Watch YouTube Together</h2>
+        <h2><span class="icon icon-youtube"></span> Watch YouTube Together</h2>
         <button class="icon-btn" onclick="closeYoutubeModal()">
-          <i data-lucide="x"></i>
+          <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="modal-body">
@@ -500,23 +498,5 @@
   <script src="js/webrtc.js"></script>
   <script src="js/profile-viewer.js"></script>
   <script src="js/roles-status.js"></script>
-  
-  <!-- Initialize Lucide Icons -->
-  <script>
-    // Initialize icons when DOM is ready
-    if (typeof lucide !== 'undefined') {
-      lucide.createIcons();
-      
-      // Re-create icons after dynamic content loads
-      const observer = new MutationObserver(() => {
-        lucide.createIcons();
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    }
-  </script>
 </body>
 </html>
