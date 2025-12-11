@@ -135,16 +135,16 @@ function createStatusModal() {
     <div class="modal">
       <div class="modal-header">
         <h2>Set Status</h2>
-        <button class="icon-btn" onclick="closeStatusModal()">×</button>
+        <button class="icon-btn" onclick="closeStatusModal()"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
         <div class="status-presets">
-          <button class="status-preset" onclick="setStatus('🎮 Playing Roblox')">🎮 Playing Roblox</button>
-          <button class="status-preset" onclick="setStatus('💻 Coding')">💻 Coding</button>
-          <button class="status-preset" onclick="setStatus('📚 Studying')">📚 Studying</button>
-          <button class="status-preset" onclick="setStatus('🎵 Listening to music')">🎵 Listening to music</button>
-          <button class="status-preset" onclick="setStatus('😴 AFK')">😴 AFK</button>
-          <button class="status-preset" onclick="setStatus('🎬 Watching videos')">🎬 Watching videos</button>
+          <button class="status-preset" onclick="setStatus('Playing Roblox')">Playing Roblox</button>
+          <button class="status-preset" onclick="setStatus('Coding')">Coding</button>
+          <button class="status-preset" onclick="setStatus('Studying')">Studying</button>
+          <button class="status-preset" onclick="setStatus('Listening to music')">Listening to music</button>
+          <button class="status-preset" onclick="setStatus('AFK')">AFK</button>
+          <button class="status-preset" onclick="setStatus('Watching videos')">Watching videos</button>
         </div>
         <div class="form-group">
           <label>Custom Status</label>
@@ -159,6 +159,11 @@ function createStatusModal() {
   `;
   
   document.body.appendChild(modal);
+  
+  // Initialize icons
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
   
   // Add CSS
   const style = document.createElement('style');
@@ -331,13 +336,18 @@ function addStatusButton() {
   if (userMenu) {
     const statusItem = document.createElement('div');
     statusItem.className = 'dropdown-item';
-    statusItem.innerHTML = '<span>💬</span> Set Status';
+    statusItem.innerHTML = '<i data-lucide="message-circle"></i> Set Status';
     statusItem.onclick = openStatusModal;
     
     // Insert after profile item
     const firstItem = userMenu.querySelector('.dropdown-item');
     if (firstItem) {
       firstItem.after(statusItem);
+      
+      // Initialize icon
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
     }
   }
 }
