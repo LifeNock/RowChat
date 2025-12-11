@@ -142,7 +142,8 @@ function addMessageToUI(message) {
   
   const username = document.createElement('span');
   username.className = 'message-username';
-  username.textContent = message.username || user.username || 'Unknown';
+  const displayName = message.username || user.username || 'Unknown';
+  username.innerHTML = displayName + (typeof getRoleBadge === 'function' ? getRoleBadge(displayName, user.role) : '');
   username.style.cursor = 'pointer';
   username.onclick = () => {
     if (message.user_id !== currentUser.id) {
