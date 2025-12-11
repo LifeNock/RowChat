@@ -14,7 +14,7 @@ function initGifPicker() {
     <div class="gif-picker-container">
       <div class="gif-picker-header">
         <input type="text" id="gifSearchInput" placeholder="Search GIFs..." autocomplete="off">
-        <button onclick="closeGifPicker()" class="icon-btn"><i data-lucide="x"></i></button>
+        <button onclick="closeGifPicker()" class="icon-btn"><span class="icon icon-x"></span></button>
       </div>
       <div class="gif-picker-grid" id="gifPickerGrid">
         <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
@@ -26,26 +26,16 @@ function initGifPicker() {
   
   document.body.appendChild(gifPickerModal);
   
-  // Initialize icons
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
-  
   const messageWrapper = document.querySelector('.message-input-wrapper');
   if (messageWrapper) {
     const gifBtn = document.createElement('button');
     gifBtn.className = 'icon-btn';
-    gifBtn.innerHTML = '<i data-lucide="image"></i>';
+    gifBtn.innerHTML = '<span class="icon icon-image"></span>';
     gifBtn.title = 'Send GIF';
     gifBtn.onclick = openGifPicker;
     
     const fileBtn = messageWrapper.querySelector('button');
     messageWrapper.insertBefore(gifBtn, fileBtn.nextSibling);
-    
-    // Initialize icon
-    if (typeof lucide !== 'undefined') {
-      lucide.createIcons();
-    }
   }
   
   const searchInput = document.getElementById('gifSearchInput');
