@@ -121,6 +121,12 @@ function addMessageToUI(message) {
   
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
+  avatar.style.cursor = 'pointer';
+  avatar.onclick = () => {
+    if (message.user_id !== currentUser.id) {
+      openProfileView(message.user_id);
+    }
+  };
   if (user.avatar_url) {
     avatar.innerHTML = `<img src="${user.avatar_url}">`;
   } else {
@@ -137,6 +143,12 @@ function addMessageToUI(message) {
   const username = document.createElement('span');
   username.className = 'message-username';
   username.textContent = message.username || user.username || 'Unknown';
+  username.style.cursor = 'pointer';
+  username.onclick = () => {
+    if (message.user_id !== currentUser.id) {
+      openProfileView(message.user_id);
+    }
+  };
   
   const timestamp = document.createElement('span');
   timestamp.className = 'message-timestamp';
