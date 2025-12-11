@@ -9,9 +9,6 @@
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  
   <!-- CSS Files -->
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/themes.css">
@@ -20,6 +17,8 @@
   <link rel="stylesheet" href="css/calls-styles.css">
 </head>
 <body>
+  
+  
 
   <!-- Loading Screen -->
   <div id="loadingScreen" class="loading-screen">
@@ -81,15 +80,15 @@
       <!-- Navigation Tabs -->
       <div class="nav-tabs">
         <button class="nav-tab active" data-tab="rooms" onclick="switchTab('rooms')">
-          <i data-lucide="message-square" class="tab-icon"></i>
+          <span class="tab-icon">💬</span>
           <span>Rooms</span>
         </button>
         <button class="nav-tab" data-tab="dms" onclick="switchTab('dms')">
-          <i data-lucide="inbox" class="tab-icon"></i>
+          <span class="tab-icon">📨</span>
           <span>Direct Messages</span>
         </button>
         <button class="nav-tab" data-tab="friends" onclick="switchTab('friends')">
-          <i data-lucide="users" class="tab-icon"></i>
+          <span class="tab-icon">👥</span>
           <span>Friends</span>
           <span class="notification-badge" id="friendRequestBadge" style="display: none;">0</span>
         </button>
@@ -99,9 +98,7 @@
       <div class="content-section active" id="roomsSection">
         <div class="section-header">
           <span>Rooms</span>
-          <button class="icon-btn" onclick="openCreateRoomModal()" title="Create Room">
-            <i data-lucide="plus"></i>
-          </button>
+          <button class="icon-btn" onclick="openCreateRoomModal()" title="Create Room">+</button>
         </div>
         <div id="roomsList" class="rooms-list"></div>
       </div>
@@ -110,9 +107,7 @@
       <div class="content-section" id="dmsSection">
         <div class="section-header">
           <span>Direct Messages</span>
-          <button class="icon-btn" onclick="openNewDMModal()" title="New DM">
-            <i data-lucide="plus"></i>
-          </button>
+          <button class="icon-btn" onclick="openNewDMModal()" title="New DM">+</button>
         </div>
         <div id="dmsList" class="dms-list"></div>
       </div>
@@ -121,9 +116,7 @@
       <div class="content-section" id="friendsSection">
         <div class="section-header">
           <span>Friends</span>
-          <button class="icon-btn" onclick="openAddFriendModal()" title="Add Friend">
-            <i data-lucide="user-plus"></i>
-          </button>
+          <button class="icon-btn" onclick="openAddFriendModal()" title="Add Friend">+</button>
         </div>
         <div class="friends-tabs">
           <button class="friend-tab active" onclick="showFriendTab('online')">Online</button>
@@ -141,9 +134,7 @@
             <div class="user-name" id="sidebarUsername"></div>
             <div class="user-status">🟢 Online</div>
           </div>
-          <button class="icon-btn">
-            <i data-lucide="settings"></i>
-          </button>
+          <button class="icon-btn">⚙️</button>
         </div>
       </div>
     </div>
@@ -162,15 +153,9 @@
             <span class="online-dot"></span>
             <span id="onlineCount">0 online</span>
           </div>
-          <button class="icon-btn" onclick="openWhiteboardModal()" title="Start Whiteboard">
-            <i data-lucide="palette"></i>
-          </button>
-          <button class="icon-btn" onclick="openYoutubeModal()" title="Watch YouTube Together">
-            <i data-lucide="youtube"></i>
-          </button>
-          <button class="icon-btn" onclick="toggleRoomInfo()" title="Room Info">
-            <i data-lucide="info"></i>
-          </button>
+          <button class="icon-btn" onclick="openWhiteboardModal()" title="Start Whiteboard">🎨</button>
+          <button class="icon-btn" onclick="openYoutubeModal()" title="Watch YouTube Together">📺</button>
+          <button class="icon-btn" onclick="toggleRoomInfo()" title="Room Info">ℹ️</button>
         </div>
       </div>
 
@@ -192,27 +177,21 @@
           <span class="reply-label">Replying to <strong id="replyToUser"></strong></span>
           <span class="reply-text" id="replyToText"></span>
         </div>
-        <button class="icon-btn" onclick="cancelReply()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="cancelReply()">×</button>
       </div>
 
       <!-- Edit Bar -->
       <div class="edit-bar" id="editBar" style="display: none;">
         <div class="edit-content">
-          <span class="edit-label"><i data-lucide="edit-3"></i> Editing message</span>
+          <span class="edit-label">✏️ Editing message</span>
         </div>
-        <button class="icon-btn" onclick="cancelEdit()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="cancelEdit()">×</button>
       </div>
 
       <!-- File Preview Bar -->
       <div class="file-preview-bar" id="filePreviewBar" style="display: none;">
         <div class="file-preview" id="filePreview"></div>
-        <button class="icon-btn" onclick="cancelFile()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="cancelFile()">×</button>
       </div>
 
       <!-- Message Input -->
@@ -220,7 +199,7 @@
         <div class="message-input-wrapper">
           <input type="file" id="fileInput" style="display: none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt">
           <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload File">
-            <i data-lucide="paperclip"></i>
+            📎
           </button>
           <input 
             type="text" 
@@ -231,7 +210,9 @@
           >
           <span class="char-count" id="charCount"></span>
           <button class="btn-send" id="sendBtn" onclick="sendMessage()">
-            <i data-lucide="send"></i>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -241,9 +222,7 @@
     <div class="room-info-panel" id="roomInfoPanel">
       <div class="room-info-header">
         <h3>Room Info</h3>
-        <button class="icon-btn" onclick="toggleRoomInfo()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="toggleRoomInfo()">×</button>
       </div>
       <div class="room-info-content" id="roomInfoContent"></div>
     </div>
@@ -252,28 +231,28 @@
   <!-- User Settings Dropdown -->
   <div class="dropdown-menu" id="userMenu" style="display: none;">
     <div class="dropdown-item" onclick="openProfileModal()">
-      <i data-lucide="user"></i> Edit Profile
+      <span>👤</span> Edit Profile
     </div>
     <div class="dropdown-item" onclick="openThemeModal()">
-      <i data-lucide="palette"></i> Themes & Appearance
+      <span>🎨</span> Themes & Appearance
     </div>
     <div class="dropdown-item" onclick="openSettingsModal()">
-      <i data-lucide="settings"></i> Settings
+      <span>⚙️</span> Settings
     </div>
     <div class="dropdown-divider"></div>
     <div class="dropdown-item danger" onclick="logout()">
-      <i data-lucide="log-out"></i> Log Out
+      <span>🚪</span> Log Out
     </div>
   </div>
 
+  <!-- Modals -->
+  
   <!-- Profile Modal -->
   <div class="modal-overlay" id="profileModal">
     <div class="modal">
       <div class="modal-header">
         <h2>Edit Profile</h2>
-        <button class="icon-btn" onclick="closeProfileModal()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="closeProfileModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="avatar-upload">
@@ -301,10 +280,8 @@
   <div class="modal-overlay" id="themeModal">
     <div class="modal modal-large">
       <div class="modal-header">
-        <h2><i data-lucide="palette"></i> Themes & Appearance</h2>
-        <button class="icon-btn" onclick="closeThemeModal()">
-          <i data-lucide="x"></i>
-        </button>
+        <h2>🎨 Themes & Appearance</h2>
+        <button class="icon-btn" onclick="closeThemeModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="theme-section">
@@ -327,9 +304,7 @@
     <div class="modal">
       <div class="modal-header">
         <h2>Create Room</h2>
-        <button class="icon-btn" onclick="closeCreateRoomModal()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="closeCreateRoomModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -353,9 +328,7 @@
     <div class="modal">
       <div class="modal-header">
         <h2>Add Friend</h2>
-        <button class="icon-btn" onclick="closeAddFriendModal()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="closeAddFriendModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -376,9 +349,7 @@
     <div class="modal">
       <div class="modal-header">
         <h2>New Direct Message</h2>
-        <button class="icon-btn" onclick="closeNewDMModal()">
-          <i data-lucide="x"></i>
-        </button>
+        <button class="icon-btn" onclick="closeNewDMModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -392,48 +363,147 @@
     </div>
   </div>
 
-  <!-- Whiteboard Modal -->
-  <div id="whiteboardModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
-    <div class="modal-content" style="width: 900px; max-width: 95vw; max-height: 90vh; background: var(--bg-primary, #1a1a1a); border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--bg-tertiary, #333); flex-shrink: 0;">
-        <h3 style="margin: 0; color: var(--text-primary, #fff); font-size: 18px;">
-          <i data-lucide="palette"></i> Collaborative Whiteboard
-        </h3>
-        <span class="close-btn" onclick="closeWhiteboardModal()" style="font-size: 28px; color: var(--text-secondary, #999); cursor: pointer; line-height: 1; transition: color 0.2s; user-select: none;">&times;</span>
+<!-- Whiteboard Modal - WITH INLINE STYLES TO FIX VISIBILITY -->
+<div id="whiteboardModal" class="modal" style="
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 99999;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(4px);
+">
+  <div class="modal-content" style="
+    width: 900px;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: var(--bg-primary, #1a1a1a);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  ">
+    <!-- Modal Header -->
+    <div class="modal-header" style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid var(--bg-tertiary, #333);
+      flex-shrink: 0;
+    ">
+      <h3 style="margin: 0; color: var(--text-primary, #fff); font-size: 18px;">
+        🎨 Collaborative Whiteboard
+      </h3>
+      <span class="close-btn" onclick="closeWhiteboardModal()" style="
+        font-size: 28px;
+        color: var(--text-secondary, #999);
+        cursor: pointer;
+        line-height: 1;
+        transition: color 0.2s;
+        user-select: none;
+      ">&times;</span>
+    </div>
+    
+    <!-- Modal Body -->
+    <div class="modal-body" style="
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    ">
+      <!-- Color Picker & Tools -->
+      <div id="whiteboardColorPicker" style="
+        background: var(--bg-secondary, #252525);
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+      ">
+        <!-- Color picker will be rendered here by JavaScript -->
       </div>
       
-      <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
-        <div id="whiteboardColorPicker" style="background: var(--bg-secondary, #252525); padding: 12px; border-radius: 8px; margin-bottom: 12px;"></div>
-        
-        <div style="background: #1e1e1e; border-radius: 8px; display: flex; justify-content: center; align-items: center; overflow: hidden; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);">
-          <canvas id="whiteboardCanvas" style="border-radius: 8px; cursor: crosshair; display: block;"></canvas>
-        </div>
-        
-        <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: space-between; align-items: center;">
-          <button class="btn-secondary" onclick="clearWhiteboard()">
-            <i data-lucide="trash-2"></i> Clear Canvas
-          </button>
-          <button class="btn-primary" onclick="sendWhiteboardInvite()">
-            <i data-lucide="send"></i> Send Invite
-          </button>
-        </div>
+      <!-- Canvas Container -->
+      <div style="
+        background: #1e1e1e;
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+      ">
+        <canvas id="whiteboardCanvas" style="
+          border-radius: 8px;
+          cursor: crosshair;
+          display: block;
+        "></canvas>
+      </div>
+      
+      <!-- Controls -->
+      <div style="
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        align-items: center;
+      ">
+        <button class="btn-secondary" onclick="clearWhiteboard()" style="
+          padding: 10px 20px;
+          background: var(--bg-tertiary, #333);
+          color: var(--text-primary, #fff);
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: background 0.2s;
+        ">
+          🗑️ Clear Canvas
+        </button>
+        <button class="btn-primary" onclick="sendWhiteboardInvite()" style="
+          padding: 10px 20px;
+          background: var(--accent, #5865f2);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: background 0.2s;
+        ">
+          📨 Send Invite
+        </button>
       </div>
     </div>
   </div>
+</div>
 
-  <style>
-  #whiteboardModal.active { display: flex !important; }
-  .close-btn:hover { color: var(--text-primary, #fff) !important; }
-  </style>
+<style>
+/* Whiteboard Modal Visibility Fix */
+#whiteboardModal.active {
+  display: flex !important;
+}
 
+.close-btn:hover {
+  color: var(--text-primary, #fff) !important;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover, #444) !important;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover, #4752c4) !important;
+}
+</style>
   <!-- YouTube Modal -->
   <div class="modal-overlay" id="youtubeModal">
     <div class="modal modal-large">
       <div class="modal-header">
-        <h2><i data-lucide="youtube"></i> Watch YouTube Together</h2>
-        <button class="icon-btn" onclick="closeYoutubeModal()">
-          <i data-lucide="x"></i>
-        </button>
+        <h2>📺 Watch YouTube Together</h2>
+        <button class="icon-btn" onclick="closeYoutubeModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -454,7 +524,7 @@
     <img id="modalImage" src="">
   </div>
 
-  <!-- Supabase Configuration -->
+  <!-- Supabase Configuration (INLINE) -->
   <script>
     console.log('Initializing Supabase...');
     
@@ -462,7 +532,8 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91bGt0bHFka2p6cmZmaGVzemdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4NDczMjIsImV4cCI6MjA4MDQyMzMyMn0.OBd7uqt8jiKHdFdk6oIDjDQoerInW-tzqyVjJKlZ9DM';
     
     if (typeof window.supabase === 'undefined') {
-      console.error('ERROR: Supabase library not loaded!');
+      document.getElementById('debug').textContent = 'ERROR: Supabase library not loaded!';
+      document.getElementById('debug').style.background = 'red';
     } else {
       try {
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -473,8 +544,13 @@
         });
         
         window.supabaseClient = supabase;
+        
+        document.getElementById('debug').textContent = 'Supabase OK! ✓';
+        document.getElementById('debug').style.background = 'green';
         console.log('Supabase initialized successfully');
       } catch (error) {
+        document.getElementById('debug').textContent = 'Supabase Init Error!';
+        document.getElementById('debug').style.background = 'red';
         console.error('Supabase error:', error);
       }
     }
@@ -496,23 +572,5 @@
   <script src="js/webrtc.js"></script>
   <script src="js/profile-viewer.js"></script>
   <script src="js/roles-status.js"></script>
-  
-  <!-- Initialize Lucide Icons -->
-  <script>
-    // Initialize icons when DOM is ready
-    if (typeof lucide !== 'undefined') {
-      lucide.createIcons();
-      
-      // Re-create icons after dynamic content loads
-      const observer = new MutationObserver(() => {
-        lucide.createIcons();
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    }
-  </script>
 </body>
 </html>
