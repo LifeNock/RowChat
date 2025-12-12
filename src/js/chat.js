@@ -243,6 +243,11 @@ function addMessageToUI(message) {
   msgDiv.appendChild(contentWrapper);
   
   container.appendChild(msgDiv);
+  
+  // Add admin delete button if user is admin
+  if (currentUser.role === 'admin' && typeof addAdminDeleteButton === 'function') {
+    addAdminDeleteButton(msgDiv, message.id, message.user_id);
+  }
 }
 
 function setReply(messageId, username, text) {
