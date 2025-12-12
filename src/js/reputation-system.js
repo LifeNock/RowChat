@@ -127,14 +127,6 @@ async function trackFriendAdded(userId) {
 // ==================== PROFILE SIDEBAR ====================
 
 async function openProfileView(userId) {
-  if (userId === currentUser.id) {
-    // Open own profile modal instead
-    if (typeof openProfileModal === 'function') {
-      openProfileModal();
-    }
-    return;
-  }
-  
   try {
     const supabase = getSupabase();
     
@@ -161,25 +153,27 @@ async function openProfileView(userId) {
       console.log('No stats found for user:', statsError);
     }
     
-    // Load friendship status (may not exist)
+    // Only load friendship if viewing another user
     let friendship = null;
-    try {
-      const { data: friendshipData } = await supabase
-        .from('friendships')
-        .select('*')
-        .or(`user1_id.eq.${currentUser.id},user2_id.eq.${userId}`)
-        .or(`user1_id.eq.${userId},user2_id.eq.${currentUser.id}`)
-        .maybeSingle();
-      
-      // Filter to ensure it's the right friendship
-      if (friendshipData) {
-        if ((friendshipData.user1_id === currentUser.id && friendshipData.user2_id === userId) ||
-            (friendshipData.user1_id === userId && friendshipData.user2_id === currentUser.id)) {
-          friendship = friendshipData;
+    if (userId !== currentUser.id) {
+      try {
+        const { data: friendshipData } = await supabase
+          .from('friendships')
+          .select('*')
+          .or(`user1_id.eq.${currentUser.id},user2_id.eq.${userId}`)
+          .or(`user1_id.eq.${userId},user2_id.eq.${currentUser.id}`)
+          .maybeSingle();
+        
+        // Filter to ensure it's the right friendship
+        if (friendshipData) {
+          if ((friendshipData.user1_id === currentUser.id && friendshipData.user2_id === userId) ||
+              (friendshipData.user1_id === userId && friendshipData.user2_id === currentUser.id)) {
+            friendship = friendshipData;
+          }
         }
+      } catch (friendError) {
+        console.log('No friendship found:', friendError);
       }
-    } catch (friendError) {
-      console.log('No friendship found:', friendError);
     }
     
     renderProfileSidebar(user, stats, friendship);
@@ -306,21 +300,29 @@ function renderProfileSidebar(user, stats, friendship) {
       </div>
       
       <!-- Actions -->
-      <div class="profile-actions">
-        ${!isFriend && !isPending ? `
-          <button class="profile-action-btn profile-action-primary" onclick="sendFriendRequestFromProfile(${user.id})">
-            Add Friend
+      ${user.id === currentUser.id ? `
+        <div class="profile-actions">
+          <button class="profile-action-btn profile-action-primary" onclick="closeProfileView(); openProfileModal();">
+            Edit Profile
           </button>
-        ` : isPending ? `
-          <button class="profile-action-btn profile-action-secondary" disabled>
-            Friend Request Pending
-          </button>
-        ` : `
-          <button class="profile-action-btn profile-action-secondary" onclick="startDMFromProfile(${user.id})">
-            Send Message
-          </button>
-        `}
-      </div>
+        </div>
+      ` : `
+        <div class="profile-actions">
+          ${!isFriend && !isPending ? `
+            <button class="profile-action-btn profile-action-primary" onclick="sendFriendRequestFromProfile(${user.id})">
+              Add Friend
+            </button>
+          ` : isPending ? `
+            <button class="profile-action-btn profile-action-secondary" disabled>
+              Friend Request Pending
+            </button>
+          ` : `
+            <button class="profile-action-btn profile-action-secondary" onclick="startDMFromProfile(${user.id})">
+              Send Message
+            </button>
+          `}
+        </div>
+      `}
     </div>
   `;
   
