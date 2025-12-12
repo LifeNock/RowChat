@@ -1,4 +1,4 @@
-// ROWCHAT - ROOMS (FIXED - NO ICON FIELD)
+// ROWCHAT - ROOMS (POLISHED)
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -11,19 +11,20 @@ async function loadRooms() {
     const { data: allRooms, error } = await supabase
       .from('rooms')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false});
     
     if (error) throw error;
     
     const rooms = allRooms.filter(room => room.is_dm !== true);
     
-    // Sort: announcements first, then by created_at
+    // Sort: announcements first
     rooms.sort((a, b) => {
       if (a.is_announcement && !b.is_announcement) return -1;
       if (!a.is_announcement && b.is_announcement) return 1;
       return new Date(b.created_at) - new Date(a.created_at);
     });
     
+    // Load members for each room
     for (const room of rooms) {
       const { data: members } = await supabase
         .from('room_members')
@@ -63,46 +64,59 @@ function renderRoomList(rooms) {
       roomDiv.style.fontWeight = '600';
     }
     
+    // Count online users
     let onlineCount = 0;
-    if (room.members && typeof onlineUsers !== 'undefined') {
+    if (room.members && Array.isArray(room.members) && typeof onlineUsers !== 'undefined') {
       room.members.forEach(memberId => {
-        if (onlineUsers[memberId]?.is_online) {
+        if (onlineUsers[memberId]) {
           onlineCount++;
         }
       });
     }
     
     const icon = room.is_announcement ? '📢' : '#';
-    const lockIcon = room.is_announcement ? '<i data-lucide="lock" style="width: 14px; height: 14px; margin-left: 6px; opacity: 0.6;"></i>' : '';
+    const lockIcon = room.is_announcement ? '<span class="icon icon-lock" style="font-size: 12px; margin-left: 6px; opacity: 0.6;"></span>' : '';
     
     roomDiv.innerHTML = `
       <div class="room-icon">${icon}</div>
       <div style="flex: 1;">
         <div class="room-name">${escapeHtml(room.name)}${lockIcon}</div>
-        ${onlineCount > 0 ? `<div style="font-size: 11px; color: var(--success); margin-top: 2px;">${onlineCount} online</div>` : ''}
+        ${onlineCount > 0 ? `<div style="font-size: 11px; color: #43b581; margin-top: 2px;">${onlineCount} online</div>` : ''}
       </div>
     `;
     
     roomDiv.onclick = () => selectRoom(room);
     container.appendChild(roomDiv);
   });
-  
-  // Re-initialize Lucide icons
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
 }
 
 function selectRoom(room) {
   currentRoom = room;
   currentDM = null;
   
-  document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
-  document.querySelector(`.room-item[data-room-id="${room.id}"]`)?.classList.add('active');
+  // Clear unread
+  if (typeof unreadRooms !== 'undefined') {
+    delete unreadRooms[room.id];
+    if (typeof updateRoomBadges === 'function') {
+      updateRoomBadges();
+    }
+  }
   
+  // Update active state
+  document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
+  const selected = document.querySelector(`.room-item[data-room-id="${room.id}"]`);
+  if (selected) selected.classList.add('active');
+  
+  // Update header
   const icon = room.is_announcement ? '📢' : '#';
-  document.getElementById('chatTitle').textContent = `${icon} ${room.name}`;
-  document.getElementById('chatDescription').textContent = room.description || '';
+  const chatTitle = document.getElementById('chatTitle');
+  if (chatTitle) chatTitle.textContent = `${icon} ${room.name}`;
+  
+  const chatDescription = document.getElementById('chatDescription');
+  if (chatDescription) chatDescription.textContent = room.description || '';
+  
+  // Update online count for this room
+  updateCurrentRoomOnlineCount();
   
   // Disable input if announcement room and not admin
   const messageInput = document.getElementById('messageInput');
@@ -122,19 +136,25 @@ function selectRoom(room) {
     if (sendBtn) sendBtn.disabled = false;
   }
   
+  // Load messages
   if (typeof loadMessages === 'function') {
     loadMessages(room.id);
   }
 }
 
 function openCreateRoomModal() {
-  document.getElementById('createRoomModal')?.classList.add('active');
-  document.getElementById('roomName').value = '';
-  document.getElementById('roomDescription').value = '';
+  const modal = document.getElementById('createRoomModal');
+  if (modal) modal.classList.add('active');
+  
+  const nameInput = document.getElementById('roomName');
+  const descInput = document.getElementById('roomDescription');
+  if (nameInput) nameInput.value = '';
+  if (descInput) descInput.value = '';
 }
 
 function closeCreateRoomModal() {
-  document.getElementById('createRoomModal')?.classList.remove('active');
+  const modal = document.getElementById('createRoomModal');
+  if (modal) modal.classList.remove('active');
 }
 
 async function createRoom() {
@@ -178,4 +198,4 @@ async function createRoom() {
   }
 }
 
-console.log('Rooms.js loaded (FIXED)');
+console.log('Rooms.js loaded (POLISHED)');
