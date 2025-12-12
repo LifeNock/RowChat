@@ -318,24 +318,28 @@ async function createRoomEnhanced() {
 function showDeleteRoomOption() {
   if (!currentRoom) return;
   
+  // Don't show for announcement rooms
+  if (currentRoom.is_announcement) return;
+  
   const isAdmin = currentUser.role === 'admin';
   const isRoomMaster = currentRoom.room_master_id === currentUser.id || currentRoom.created_by === currentUser.id;
   
   if (!isAdmin && !isRoomMaster) return;
   
-  // Add delete button to room info panel or chat header
-  const chatActions = document.querySelector('.chat-actions');
+  // Add delete button to chat actions
+  const chatActions = document.getElementById('chatActions');
   if (!chatActions) return;
   
-  let deleteBtn = document.getElementById('deleteRoomBtn');
-  if (!deleteBtn) {
-    deleteBtn = document.createElement('button');
-    deleteBtn.id = 'deleteRoomBtn';
-    deleteBtn.className = 'delete-room-btn';
-    deleteBtn.textContent = '🗑️ Delete Room';
-    deleteBtn.onclick = confirmDeleteRoom;
-    chatActions.appendChild(deleteBtn);
-  }
+  // Clear previous buttons
+  chatActions.innerHTML = '';
+  
+  const deleteBtn = document.createElement('button');
+  deleteBtn.id = 'deleteRoomBtn';
+  deleteBtn.className = 'delete-room-btn';
+  deleteBtn.innerHTML = '🗑️ Delete Room';
+  deleteBtn.onclick = confirmDeleteRoom;
+  
+  chatActions.appendChild(deleteBtn);
 }
 
 function confirmDeleteRoom() {
