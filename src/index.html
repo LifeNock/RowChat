@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="css/simple-icons.css">
   <link rel="stylesheet" href="css/online-users-dropdown.css">
   <link rel="stylesheet" href="css/message-formatting.css">
+  <link rel="stylesheet" href="css/admin-features.css">
   <link rel="stylesheet" href="css/gif-picker-styles.css">
   <link rel="stylesheet" href="css/calls-styles.css">
 </head>
@@ -105,6 +106,15 @@
           </button>
         </div>
         <div id="roomsList" class="rooms-list"></div>
+        
+        <!-- Admin: View All DMs -->
+        <div class="admin-dms-section" id="adminDmsSection" style="display: none;">
+          <div class="admin-dms-toggle" onclick="toggleAdminDMs()">
+            <span>🔴 Admin: View All DMs</span>
+            <span>▼</span>
+          </div>
+          <div class="admin-dms-list" id="adminDmsList"></div>
+        </div>
       </div>
       
       <!-- DMs List -->
@@ -330,28 +340,63 @@
     </div>
   </div>
 
-  <!-- Create Room Modal -->
+  <!-- Create Room Modal (Enhanced) -->
   <div class="modal-overlay" id="createRoomModal">
-    <div class="modal">
+    <div class="modal create-room-modal-large">
       <div class="modal-header">
-        <h2>Create Room</h2>
+        <h2>Create New Room</h2>
         <button class="icon-btn" onclick="closeCreateRoomModal()">
           <span class="icon icon-x"></span>
         </button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label>Room Name</label>
-          <input type="text" id="roomName" placeholder="e.g. General Discussion">
+          <label>Room Name *</label>
+          <input type="text" id="roomName" placeholder="Enter room name" maxlength="50">
         </div>
+        
         <div class="form-group">
           <label>Description</label>
-          <textarea id="roomDescription" placeholder="What's this room about?"></textarea>
+          <textarea id="roomDescription" placeholder="What's this room about?" maxlength="200" rows="3"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label>Room Type</label>
+          <select id="roomType">
+            <option value="general">💬 General Chat</option>
+            <option value="study_group">📚 Study Group</option>
+            <option value="project">🔧 Project</option>
+            <option value="gaming">🎮 Gaming</option>
+            <option value="other">📁 Other</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Privacy Setting</label>
+          <select id="roomPrivacy" onchange="updatePrivacyInfo()">
+            <option value="public">🌐 Public - Anyone can join</option>
+            <option value="friends_only">👥 Friends Only - Only your friends can see</option>
+            <option value="invite_only">✉️ Invite Only - Requires invitation</option>
+            <option value="private">🔒 Private - Hidden from all non-members</option>
+          </select>
+        </div>
+        
+        <div id="privacyInfo" class="privacy-info">
+          <strong>Public rooms</strong> are visible to everyone and anyone can join.
+        </div>
+        
+        <div id="inviteUsersSection" style="display: none;">
+          <div class="form-group">
+            <label>Invite Users</label>
+            <input type="text" id="inviteSearch" placeholder="Search users to invite..." oninput="searchUsersToInvite()">
+            <div id="inviteUsersList" class="invite-users-list"></div>
+          </div>
+          <div id="selectedInvites" class="selected-invites"></div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeCreateRoomModal()">Cancel</button>
-        <button class="btn-primary" onclick="createRoom()">Create</button>
+        <button class="btn-primary" onclick="createRoomEnhanced()">Create Room</button>
       </div>
     </div>
   </div>
@@ -504,5 +549,6 @@
   <script src="js/webrtc.js"></script>
   <script src="js/profile-viewer.js"></script>
   <script src="js/roles-status.js"></script>
+  <script src="js/admin-features.js"></script>
 </body>
 </html>
