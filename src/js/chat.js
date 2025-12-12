@@ -465,7 +465,7 @@ if (messageInput) {
     
     // Auto-resize textarea
     e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
   });
 }
 
