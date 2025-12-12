@@ -1,16 +1,25 @@
 /* Message Input - Textarea Styling */
 #messageInput {
   min-height: 40px;
-  max-height: 200px;
+  max-height: 120px;
   resize: none;
   overflow-y: auto;
   font-family: var(--font-family);
-  line-height: 1.5;
-  padding: 10px 12px;
+  line-height: 1.4;
+  padding: 11px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  flex: 1;
+  outline: none;
+}
+
+#messageInput::placeholder {
+  color: var(--text-tertiary);
 }
 
 #messageInput::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 #messageInput::-webkit-scrollbar-track {
@@ -19,17 +28,11 @@
 
 #messageInput::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
-/* Formatting Hint */
-.formatting-hint {
-  padding: 4px 12px;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-  border-top: 1px solid var(--border);
-  text-align: center;
+#messageInput::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 /* Formatted Text in Messages */
@@ -78,17 +81,13 @@
 .message-content br {
   display: block;
   content: "";
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
-  .formatting-hint {
-    font-size: 10px;
-    padding: 3px 8px;
-  }
-  
   #messageInput {
-    max-height: 150px;
+    max-height: 100px;
+    font-size: 16px; /* Prevents zoom on iOS */
   }
 }
