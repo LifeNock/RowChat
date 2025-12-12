@@ -147,16 +147,16 @@
       
       <!-- User Section -->
       <div class="user-section">
-        <div class="user-profile" onclick="toggleUserMenu()">
-          <div class="user-avatar" id="sidebarAvatar"></div>
-          <div class="user-info">
+        <div class="user-profile">
+          <div class="user-avatar" id="sidebarAvatar" onclick="openProfileView(currentUser.id)" style="cursor: pointer;"></div>
+          <div class="user-info" onclick="openProfileView(currentUser.id)" style="cursor: pointer;">
             <div class="user-name" id="sidebarUsername"></div>
             <div class="user-status">
               <span class="online-dot"></span>
               <span>Online</span>
             </div>
           </div>
-          <button class="icon-btn">
+          <button class="icon-btn" onclick="toggleUserMenu()">
             <span class="icon icon-settings"></span>
           </button>
         </div>
@@ -271,8 +271,11 @@
 
   <!-- User Settings Dropdown -->
   <div class="dropdown-menu" id="userMenu" style="display: none;">
+    <div class="dropdown-item" onclick="openProfileView(currentUser.id); toggleUserMenu();">
+      <span class="icon icon-user"></span> View Profile
+    </div>
     <div class="dropdown-item" onclick="openProfileModal()">
-      <span class="icon icon-user"></span> Edit Profile
+      <span class="icon icon-edit"></span> Edit Profile
     </div>
     <div class="dropdown-item" onclick="openThemeModal()">
       <span class="icon icon-palette"></span> Themes & Appearance
