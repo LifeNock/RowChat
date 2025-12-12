@@ -304,6 +304,11 @@ async function createRoomEnhanced() {
     showToast('Room created!', 'success');
     closeCreateRoomModal();
     
+    // Track reputation for room creation
+    if (typeof trackRoomCreated === 'function') {
+      trackRoomCreated(currentUser.id);
+    }
+    
     await loadRooms();
     selectRoom(room);
     
