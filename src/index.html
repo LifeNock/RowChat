@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/mobile-responsive.css">
   <link rel="stylesheet" href="css/simple-icons.css">
+  <link rel="stylesheet" href="css/online-users-dropdown.css">
   <link rel="stylesheet" href="css/gif-picker-styles.css">
   <link rel="stylesheet" href="css/calls-styles.css">
 </head>
@@ -160,9 +161,13 @@
           <span id="chatDescription" class="chat-description"></span>
         </div>
         <div class="chat-header-right">
-          <div class="online-users" id="onlineUsers">
+          <div class="online-users" id="onlineUsers" onclick="toggleOnlineUsersDropdown()">
             <span class="online-dot"></span>
             <span id="onlineCount">0 online</span>
+            <div class="online-users-dropdown" id="onlineUsersDropdown">
+              <div class="online-users-header">Online Users</div>
+              <div id="onlineUsersList"></div>
+            </div>
           </div>
           <button class="icon-btn" onclick="openWhiteboardModal()" title="Start Whiteboard">
             <span class="icon icon-palette"></span>
