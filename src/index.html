@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/mobile-responsive.css">
   <link rel="stylesheet" href="css/simple-icons.css">
   <link rel="stylesheet" href="css/online-users-dropdown.css">
+  <link rel="stylesheet" href="css/message-formatting.css">
   <link rel="stylesheet" href="css/gif-picker-styles.css">
   <link rel="stylesheet" href="css/calls-styles.css">
 </head>
@@ -229,17 +230,20 @@
           <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload File">
             <span class="icon icon-paperclip"></span>
           </button>
-          <input 
-            type="text" 
+          <textarea 
             id="messageInput" 
             placeholder="Type a message..." 
             maxlength="2000"
             autocomplete="off"
-          >
+            rows="1"
+          ></textarea>
           <span class="char-count" id="charCount"></span>
           <button class="btn-send" id="sendBtn" onclick="sendMessage()">
             <span class="icon icon-send"></span>
           </button>
+        </div>
+        <div class="formatting-hint">
+          <span>**bold** *italic* __underline__ ~~strikethrough~~ `code` | Shift+Enter for new line</span>
         </div>
       </div>
     </div>
