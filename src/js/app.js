@@ -162,6 +162,84 @@ function updateOnlineCountDisplay() {
     const count = Object.keys(onlineUsers).length;
     onlineCountEl.textContent = `${count} online`;
   }
+  
+  // Update dropdown list if it's open
+  const dropdown = document.getElementById('onlineUsersDropdown');
+  if (dropdown && dropdown.classList.contains('active')) {
+    renderOnlineUsersList();
+  }
+}
+
+function toggleOnlineUsersDropdown() {
+  const dropdown = document.getElementById('onlineUsersDropdown');
+  if (!dropdown) return;
+  
+  dropdown.classList.toggle('active');
+  
+  if (dropdown.classList.contains('active')) {
+    renderOnlineUsersList();
+  }
+}
+
+function renderOnlineUsersList() {
+  const listEl = document.getElementById('onlineUsersList');
+  if (!listEl) return;
+  
+  listEl.innerHTML = '';
+  
+  const onlineUserIds = Object.keys(onlineUsers);
+  
+  if (onlineUserIds.length === 0) {
+    listEl.innerHTML = '<div class="online-users-empty">No users online</div>';
+    return;
+  }
+  
+  // Sort by username
+  const sortedUsers = onlineUserIds
+    .map(id => getUser(parseInt(id)))
+    .filter(user => user && user.username !== 'Unknown')
+    .sort((a, b) => a.username.localeCompare(b.username));
+  
+  sortedUsers.forEach(user => {
+    const userDiv = document.createElement('div');
+    userDiv.className = 'online-user-item';
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'online-user-avatar';
+    if (user.avatar_url) {
+      avatar.innerHTML = `<img src="${user.avatar_url}" alt="${user.username}">`;
+    } else {
+      avatar.textContent = user.username.charAt(0).toUpperCase();
+    }
+    
+    const info = document.createElement('div');
+    info.className = 'online-user-info';
+    
+    const name = document.createElement('div');
+    name.className = 'online-user-name';
+    name.textContent = user.username;
+    
+    const status = document.createElement('div');
+    status.className = 'online-user-status';
+    status.textContent = user.status_message || 'Online';
+    
+    info.appendChild(name);
+    info.appendChild(status);
+    
+    userDiv.appendChild(avatar);
+    userDiv.appendChild(info);
+    
+    // Click to view profile
+    userDiv.onclick = (e) => {
+      e.stopPropagation();
+      if (user.id !== currentUser.id && typeof openProfileView === 'function') {
+        openProfileView(user.id);
+        document.getElementById('onlineUsersDropdown').classList.remove('active');
+      }
+    };
+    
+    listEl.appendChild(userDiv);
+  });
 }
 
 function updateCurrentRoomOnlineCount() {
@@ -393,8 +471,17 @@ function toggleUserMenu() {
 }
 
 document.addEventListener('click', (e) => {
+  // Close user menu
   if (!e.target.closest('.user-section')) {
     document.getElementById('userMenu').style.display = 'none';
+  }
+  
+  // Close online users dropdown
+  if (!e.target.closest('.online-users')) {
+    const dropdown = document.getElementById('onlineUsersDropdown');
+    if (dropdown) {
+      dropdown.classList.remove('active');
+    }
   }
 });
 
