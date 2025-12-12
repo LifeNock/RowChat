@@ -10,10 +10,36 @@ function initRolesAndStatus() {
   // Add status modal to page
   createStatusModal();
   
+  // Load user status
+  loadUserStatus();
+  
   // Update typing when user types
   const messageInput = document.getElementById('messageInput');
   if (messageInput) {
     messageInput.addEventListener('input', handleTyping);
+  }
+}
+
+// Load user status from database
+async function loadUserStatus() {
+  try {
+    const supabase = getSupabase();
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('status_message, role')
+      .eq('id', currentUser.id)
+      .single();
+    
+    if (error) throw error;
+    
+    if (data) {
+      currentUser.status_message = data.status_message;
+      currentUser.role = data.role;
+      updateUserDisplay();
+    }
+  } catch (error) {
+    console.error('Error loading user status:', error);
   }
 }
 
@@ -40,7 +66,7 @@ async function handleTyping() {
   try {
     const supabase = getSupabase();
     
-    // Upsert typing status
+    // Set typing
     await supabase
       .from('typing_status')
       .upsert({
@@ -52,12 +78,12 @@ async function handleTyping() {
         onConflict: 'user_id,room_id'
       });
     
-    // Clear after 3 seconds
+    // Clear after 3 seconds of no typing
     clearTimeout(typingTimeout);
     typingTimeout = setTimeout(async () => {
       await supabase
         .from('typing_status')
-        .delete()
+        .update({ is_typing: false, updated_at: new Date().toISOString() })
         .eq('user_id', currentUser.id)
         .eq('room_id', roomId);
     }, 3000);
@@ -90,35 +116,43 @@ async function updateTypingIndicator() {
   try {
     const supabase = getSupabase();
     
+    // Get typing users (excluding current user, updated in last 5 seconds)
+    const cutoff = new Date(Date.now() - 5000).toISOString();
+    
     const { data: typing } = await supabase
       .from('typing_status')
       .select('user_id')
       .eq('room_id', roomId)
       .eq('is_typing', true)
-      .neq('user_id', currentUser.id);
+      .neq('user_id', currentUser.id)
+      .gte('updated_at', cutoff);
     
     const indicator = document.getElementById('typingIndicator');
     if (!indicator) return;
     
     if (typing && typing.length > 0) {
-      const usernames = await Promise.all(
-        typing.map(async (t) => {
-          const user = getUser(t.user_id);
-          return user ? user.username : 'Someone';
-        })
-      );
-      
-      if (usernames.length === 1) {
-        indicator.textContent = `${usernames[0]} is typing...`;
-      } else if (usernames.length === 2) {
-        indicator.textContent = `${usernames[0]} and ${usernames[1]} are typing...`;
-      } else {
-        indicator.textContent = `${usernames.length} people are typing...`;
+      // Get usernames
+      const usernames = [];
+      for (const t of typing) {
+        const user = getUser(t.user_id);
+        usernames.push(user.username);
       }
       
+      // Format display
+      let displayText = '';
+      if (usernames.length === 1) {
+        displayText = `${usernames[0]} is typing...`;
+      } else if (usernames.length === 2) {
+        displayText = `${usernames[0]} and ${usernames[1]} are typing...`;
+      } else if (usernames.length > 2) {
+        displayText = `${usernames[0]} and ${usernames.length - 1} others are typing...`;
+      }
+      
+      indicator.textContent = displayText;
       indicator.style.display = 'block';
     } else {
       indicator.style.display = 'none';
+      indicator.textContent = '';
     }
     
   } catch (error) {
@@ -299,13 +333,19 @@ async function clearStatus() {
 }
 
 function updateUserDisplay() {
-  const userStatus = document.querySelector('.user-status');
-  if (userStatus) {
+  const userStatusEl = document.querySelector('.user-status');
+  if (userStatusEl) {
     if (currentUser.status_message) {
-      userStatus.textContent = currentUser.status_message;
+      userStatusEl.innerHTML = `<span class="online-dot"></span><span>${currentUser.status_message}</span>`;
     } else {
-      userStatus.textContent = '🟢 Online';
+      userStatusEl.innerHTML = `<span class="online-dot"></span><span>Online</span>`;
     }
+  }
+  
+  // Also update sidebar username display
+  const sidebarUsername = document.getElementById('sidebarUsername');
+  if (sidebarUsername && currentUser.display_name) {
+    sidebarUsername.textContent = currentUser.display_name || currentUser.username;
   }
 }
 
