@@ -1,1 +1,266 @@
+/* Admin Features Styling */
 
+/* Admin DMs Dropdown in Rooms Tab */
+.admin-dms-section {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-dms-toggle {
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+  color: #f04747;
+  font-weight: 600;
+}
+
+.admin-dms-toggle:hover {
+  background: var(--bg-hover);
+  border-color: #f04747;
+}
+
+.admin-dms-list {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.admin-dms-list.expanded {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.admin-dm-item {
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 13px;
+}
+
+.admin-dm-item:hover {
+  background: var(--bg-hover);
+}
+
+/* Delete Message Button (Admin) */
+.admin-delete-msg {
+  background: #f04747;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 11px;
+  margin-left: 4px;
+  transition: opacity 0.2s;
+}
+
+.admin-delete-msg:hover {
+  opacity: 0.8;
+}
+
+/* Delete Room Button (Admin/Room Master) */
+.delete-room-btn {
+  background: #f04747;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.delete-room-btn:hover {
+  opacity: 0.8;
+}
+
+/* Room Master Badge */
+.room-master-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Enhanced Create Room Modal */
+.create-room-modal-large {
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.create-room-modal-large select,
+.create-room-modal-large textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.create-room-modal-large select:focus,
+.create-room-modal-large textarea:focus {
+  border-color: var(--accent);
+}
+
+.create-room-modal-large textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.privacy-info {
+  background: var(--bg-tertiary);
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+}
+
+/* Invite Users Section */
+.invite-users-list {
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.invite-user-item {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid var(--border);
+}
+
+.invite-user-item:last-child {
+  border-bottom: none;
+}
+
+.invite-user-item:hover {
+  background: var(--bg-hover);
+}
+
+.invite-user-item.selected {
+  background: rgba(88, 101, 242, 0.2);
+}
+
+.invite-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.invite-user-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.selected-invites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.selected-invite-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.selected-invite-tag .remove-invite {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.selected-invite-tag .remove-invite:hover {
+  opacity: 1;
+}
+
+/* Delete Room Confirmation Modal */
+.delete-room-confirmation {
+  text-align: center;
+}
+
+.delete-room-confirmation .warning-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.delete-room-confirmation input {
+  width: 100%;
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: center;
+}
+
+.delete-room-confirmation .danger-text {
+  color: #f04747;
+  font-weight: 600;
+  margin: 8px 0;
+}
+
+/* Room Type Icons */
+.room-type-icon {
+  margin-right: 6px;
+  opacity: 0.7;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .create-room-modal-large {
+    max-width: 95vw;
+  }
+  
+  .admin-dms-list.expanded {
+    max-height: 300px;
+  }
+}
