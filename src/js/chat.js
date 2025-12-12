@@ -422,6 +422,11 @@ async function sendMessage() {
     // Add to UI
     addMessageToUI(data);
     
+    // Track reputation for message
+    if (typeof trackMessageSent === 'function') {
+      trackMessageSent(currentUser.id);
+    }
+    
     // Scroll to bottom
     const container = document.getElementById('messagesContainer');
     if (container) {
