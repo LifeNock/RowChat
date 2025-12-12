@@ -97,6 +97,36 @@ function processMentions(text) {
   });
 }
 
+function formatText(text) {
+  if (!text) return '';
+  
+  // Escape HTML first
+  text = escapeHtml(text);
+  
+  // Convert line breaks
+  text = text.replace(/\n/g, '<br>');
+  
+  // Bold: **text**
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  
+  // Italic: *text*
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  
+  // Underline: __text__
+  text = text.replace(/__(.+?)__/g, '<u>$1</u>');
+  
+  // Strikethrough: ~~text~~
+  text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
+  
+  // Inline code: `code`
+  text = text.replace(/`(.+?)`/g, '<code>$1</code>');
+  
+  // Process mentions after formatting
+  text = processMentions(text);
+  
+  return text;
+}
+
 function addMessageToUI(message) {
   const container = document.getElementById('messagesContainer');
   if (!container) return;
@@ -171,28 +201,28 @@ function addMessageToUI(message) {
   
   if (message.message_type === 'image' && message.file_url) {
     content.innerHTML = `
-      ${processMentions(escapeHtml(message.content))}<br>
+      ${formatText(message.content)}<br>
       <img src="${message.file_url}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
     `;
   } else if (message.message_type === 'gif' && message.file_url) {
     content.innerHTML = `
-      ${processMentions(escapeHtml(message.content))}<br>
+      ${formatText(message.content)}<br>
       <img src="${message.file_url}" data-gif="true" style="max-width: 300px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
     `;
   } else if (message.message_type === 'video' && message.file_url) {
     content.innerHTML = `
-      ${processMentions(escapeHtml(message.content))}<br>
+      ${formatText(message.content)}<br>
       <video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;">
         <source src="${message.file_url}">
       </video>
     `;
   } else if (message.message_type === 'file' && message.file_url) {
     content.innerHTML = `
-      ${processMentions(escapeHtml(message.content))}<br>
+      ${formatText(message.content)}<br>
       <a href="${message.file_url}" target="_blank" style="color: var(--accent);">📎 ${escapeHtml(message.file_name || 'Download File')}</a>
     `;
   } else {
-    content.innerHTML = processMentions(escapeHtml(message.content));
+    content.innerHTML = formatText(message.content);
   }
   
   const actions = document.createElement('div');
@@ -336,7 +366,7 @@ async function sendMessage() {
       if (msgEl) {
         const contentEl = msgEl.querySelector('.message-content');
         if (contentEl) {
-          contentEl.innerHTML = processMentions(escapeHtml(content));
+          contentEl.innerHTML = formatText(content);
         }
       }
       
@@ -380,6 +410,7 @@ async function sendMessage() {
     
     // Clear input and reset state
     input.value = '';
+    input.style.height = 'auto'; // Reset textarea height
     updateCharCounter('');
     cancelReply();
     
@@ -420,15 +451,21 @@ function updateCharCounter(text) {
 
 const messageInput = document.getElementById('messageInput');
 if (messageInput) {
-  messageInput.addEventListener('keypress', (e) => {
+  messageInput.addEventListener('keydown', (e) => {
+    // Enter without Shift = Send message
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
+    // Shift+Enter = New line (default textarea behavior)
   });
   
   messageInput.addEventListener('input', (e) => {
     updateCharCounter(e.target.value);
+    
+    // Auto-resize textarea
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
   });
 }
 
