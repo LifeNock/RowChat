@@ -73,15 +73,23 @@
   background: #f04747;
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 13px;
   transition: opacity 0.2s;
+  margin-right: 12px;
 }
 
 .delete-room-btn:hover {
   opacity: 0.8;
+}
+
+.chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Room Master Badge */
