@@ -150,6 +150,11 @@ function selectRoom(room) {
   if (typeof loadMessages === 'function') {
     loadMessages(room.id);
   }
+  
+  // Show delete room button if admin or room master
+  if (typeof showDeleteRoomOption === 'function') {
+    setTimeout(showDeleteRoomOption, 100);
+  }
 }
 
 function openCreateRoomModal() {
