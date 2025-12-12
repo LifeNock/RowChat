@@ -1,10 +1,6 @@
 // ============================================
-// ROWCHAT - THEMES & FONTS (FIXED)
+// ROWCHAT - THEMES & FONTS
 // ============================================
-
-function getSupabase() {
-  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-}
 
 const THEMES = [
   { name: 'Default', icon: '🌙', value: 'default' },
@@ -113,11 +109,7 @@ async function selectTheme(themeName) {
     document.querySelectorAll('.theme-preset').forEach(preset => {
       preset.classList.remove('active');
     });
-    if (event && event.target) {
-      event.target.closest('.theme-preset').classList.add('active');
-    }
-    
-    console.log('Saving theme:', themeName);
+    event.target.closest('.theme-preset').classList.add('active');
     
     // Save to database
     const { error } = await supabase
@@ -127,19 +119,15 @@ async function selectTheme(themeName) {
       })
       .eq('id', currentUser.id);
     
-    if (error) {
-      console.error('Theme save error:', error);
-      throw error;
-    }
+    if (error) throw error;
     
     currentUser.theme = { preset: themeName };
     localStorage.setItem('rowchat-user', JSON.stringify(currentUser));
     
     showToast('Theme applied!', 'success');
-    console.log('Theme saved successfully');
   } catch (error) {
     console.error('Error saving theme:', error);
-    showToast('Failed to save theme: ' + error.message, 'error');
+    showToast('Failed to save theme', 'error');
   }
 }
 
@@ -155,11 +143,7 @@ async function selectFont(font) {
     document.querySelectorAll('.font-option').forEach(option => {
       option.classList.remove('active');
     });
-    if (event && event.target) {
-      event.target.closest('.font-option').classList.add('active');
-    }
-    
-    console.log('Saving font:', font.name);
+    event.target.closest('.font-option').classList.add('active');
     
     // Save to database
     const { error } = await supabase
@@ -169,19 +153,15 @@ async function selectFont(font) {
       })
       .eq('id', currentUser.id);
     
-    if (error) {
-      console.error('Font save error:', error);
-      throw error;
-    }
+    if (error) throw error;
     
     currentUser.font_family = font.name;
     localStorage.setItem('rowchat-user', JSON.stringify(currentUser));
     
     showToast('Font applied!', 'success');
-    console.log('Font saved successfully');
   } catch (error) {
     console.error('Error saving font:', error);
-    showToast('Failed to save font: ' + error.message, 'error');
+    showToast('Failed to save font', 'error');
   }
 }
 
@@ -192,10 +172,10 @@ function applyTheme(themeConfig) {
   }
 }
 
-// Open Settings Modal
+// Open Settings Modal (placeholder)
 function openSettingsModal() {
   document.getElementById('userMenu').style.display = 'none';
   showToast('Settings coming soon!', 'info');
 }
 
-console.log('Themes.js loaded (FIXED)');
+console.log('Themes.js loaded');
