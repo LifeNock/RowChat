@@ -70,6 +70,12 @@ async function initializeApp() {
     updateUserUI();
     subscribeToRealtimeUpdates();
     
+    // Show admin DMs section if user is admin
+    if (currentUser.role === 'admin') {
+      const adminSection = document.getElementById('adminDmsSection');
+      if (adminSection) adminSection.style.display = 'block';
+    }
+    
     // Update presence every 30 seconds
     setInterval(updatePresence, 30000);
     
