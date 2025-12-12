@@ -17,10 +17,20 @@ async function loadRooms() {
     
     const rooms = allRooms.filter(room => room.is_dm !== true);
     
-    // Sort: announcements first
+    // Sort: Announcements first (📢), then Updates (📰), then others
     rooms.sort((a, b) => {
-      if (a.is_announcement && !b.is_announcement) return -1;
-      if (!a.is_announcement && b.is_announcement) return 1;
+      // Both announcement rooms
+      if (a.is_announcement && b.is_announcement) {
+        // Announcements before Updates
+        if (a.name.includes('📢') && b.name.includes('📰')) return -1;
+        if (a.name.includes('📰') && b.name.includes('📢')) return 1;
+        return new Date(a.created_at) - new Date(b.created_at);
+      }
+      // Only a is announcement
+      if (a.is_announcement) return -1;
+      // Only b is announcement
+      if (b.is_announcement) return 1;
+      // Both regular rooms
       return new Date(b.created_at) - new Date(a.created_at);
     });
     
@@ -74,7 +84,7 @@ function renderRoomList(rooms) {
       });
     }
     
-    const icon = room.is_announcement ? '📢' : '#';
+    const icon = room.name.includes('📢') ? '📢' : room.name.includes('📰') ? '📰' : room.is_announcement ? '🔒' : '#';
     const lockIcon = room.is_announcement ? '<span class="icon icon-lock" style="font-size: 12px; margin-left: 6px; opacity: 0.6;"></span>' : '';
     
     roomDiv.innerHTML = `
@@ -108,7 +118,7 @@ function selectRoom(room) {
   if (selected) selected.classList.add('active');
   
   // Update header
-  const icon = room.is_announcement ? '📢' : '#';
+  const icon = room.name.includes('📢') ? '📢' : room.name.includes('📰') ? '📰' : room.is_announcement ? '🔒' : '#';
   const chatTitle = document.getElementById('chatTitle');
   if (chatTitle) chatTitle.textContent = `${icon} ${room.name}`;
   
