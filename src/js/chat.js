@@ -301,6 +301,7 @@ async function sendMessage() {
     let fileName = null;
     let messageType = 'text';
     
+    // Handle file upload
     if (pendingFile) {
       fileUrl = await uploadFile(pendingFile);
       if (!fileUrl) return;
@@ -319,6 +320,7 @@ async function sendMessage() {
       cancelFile();
     }
     
+    // Handle editing
     if (currentEditMessage) {
       const { error } = await supabase
         .from('messages')
@@ -338,10 +340,13 @@ async function sendMessage() {
         }
       }
       
+      input.value = '';
       cancelEdit();
+      updateCharCounter('');
       return;
     }
     
+    // Build message data
     const messageData = {
       room_id: roomId,
       user_id: currentUser.id,
@@ -352,11 +357,13 @@ async function sendMessage() {
       file_name: fileName
     };
     
+    // Add reply data if replying
     if (currentReplyTo) {
       messageData.reply_to = currentReplyTo.id;
       messageData.reply_text = currentReplyTo.text;
     }
     
+    // Send message
     const { data, error } = await supabase
       .from('messages')
       .insert([messageData])
@@ -371,11 +378,15 @@ async function sendMessage() {
       return;
     }
     
+    // Clear input and reset state
     input.value = '';
+    updateCharCounter('');
     cancelReply();
     
+    // Add to UI
     addMessageToUI(data);
     
+    // Scroll to bottom
     const container = document.getElementById('messagesContainer');
     if (container) {
       container.scrollTop = container.scrollHeight;
@@ -389,6 +400,24 @@ async function sendMessage() {
   }
 }
 
+// Update character counter
+function updateCharCounter(text) {
+  const counter = document.getElementById('charCount');
+  if (!counter) return;
+  
+  const length = text.length;
+  
+  if (length > 1800) {
+    counter.textContent = `${length}/2000`;
+    counter.style.color = '#f04747';
+  } else if (length > 0) {
+    counter.textContent = `${length}/2000`;
+    counter.style.color = 'var(--text-tertiary)';
+  } else {
+    counter.textContent = '';
+  }
+}
+
 const messageInput = document.getElementById('messageInput');
 if (messageInput) {
   messageInput.addEventListener('keypress', (e) => {
@@ -399,20 +428,7 @@ if (messageInput) {
   });
   
   messageInput.addEventListener('input', (e) => {
-    const length = e.target.value.length;
-    const counter = document.getElementById('charCount');
-    
-    if (counter) {
-      if (length > 1800) {
-        counter.textContent = `${length}/2000`;
-        counter.style.color = 'var(--danger)';
-      } else if (length > 0) {
-        counter.textContent = `${length}/2000`;
-        counter.style.color = 'var(--text-tertiary)';
-      } else {
-        counter.textContent = '';
-      }
-    }
+    updateCharCounter(e.target.value);
   });
 }
 
