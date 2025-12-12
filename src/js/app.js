@@ -1,15 +1,12 @@
-// ============================================
-// ROWCHAT - MAIN APPLICATION (WITH ONLINE STATUS & BADGES)
-// ============================================
+// ROWCHAT - MAIN APPLICATION (FIXED)
 
 let currentUser = null;
 let currentRoom = null;
 let currentDM = null;
 let usersCache = {};
 let roomsCache = {};
-let messagesCache = {};
 let onlineUsers = {};
-let unreadRooms = {}; // Track unread messages per room
+let unreadRooms = {};
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -19,7 +16,6 @@ function getSupabase() {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, checking for existing session...');
   
-  // Check for existing user
   const storedUser = localStorage.getItem('rowchat-user');
   if (storedUser) {
     try {
@@ -36,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Show/Hide Loading Screen
 function showLoading(show) {
   const loadingScreen = document.getElementById('loadingScreen');
   const authScreen = document.getElementById('authScreen');
@@ -58,42 +53,25 @@ function showLoading(show) {
   }
 }
 
-// Initialize Application
 async function initializeApp() {
   console.log('Initializing app for user:', currentUser.username);
   showLoading(true);
   
   try {
-    // Load all data
     await loadUsers();
     await loadRooms();
     await loadFriends();
+    await updatePresence();
     await loadOnlineUsers();
     
-    // Update UI
     updateUserUI();
-    
-    // Subscribe to real-time updates
     subscribeToRealtimeUpdates();
     
-    // Update presence
-    await updatePresence();
-    setInterval(updatePresence, 30000); // Every 30 seconds
+    // Update presence every 30 seconds
+    setInterval(updatePresence, 30000);
     
-    // Refresh online users periodically
-    setInterval(loadOnlineUsers, 10000); // Every 10 seconds
-    
-    // Apply user theme and font
-    if (currentUser.theme) {
-      applyTheme(currentUser.theme);
-    }
-    
-    if (currentUser.font_family) {
-      const font = FONTS.find(f => f.name === currentUser.font_family);
-      if (font) {
-        document.documentElement.style.setProperty('--font-family', font.value);
-      }
-    }
+    // Refresh online users every 10 seconds
+    setInterval(loadOnlineUsers, 10000);
     
     console.log('App initialized successfully!');
     showLoading(false);
@@ -104,88 +82,86 @@ async function initializeApp() {
   }
 }
 
-// Load Online Users
 async function loadOnlineUsers() {
   try {
     const supabase = getSupabase();
+    
+    // Get users online in last 60 seconds
+    const cutoff = new Date(Date.now() - 60000).toISOString();
     
     const { data, error } = await supabase
       .from('presence')
       .select('*')
       .eq('is_online', true)
-      .gte('last_seen', new Date(Date.now() - 60000).toISOString()); // Active in last 60 seconds
+      .gte('last_seen', cutoff);
     
     if (error) throw error;
     
-    // Clear old online users
     onlineUsers = {};
-    
-    // Update online users
     data.forEach(presence => {
       onlineUsers[presence.user_id] = presence;
     });
     
-    console.log('Online users loaded:', Object.keys(onlineUsers).length);
+    console.log('Online users:', Object.keys(onlineUsers).length);
     
-    // Update room list with online counts
-    updateRoomOnlineCounts();
+    // Update online count display
+    updateOnlineCountDisplay();
     
-    // Update friends list with online status
-    if (currentFriendTab) {
-      loadFriends();
+    // Update room online counts
+    if (currentRoom) {
+      updateCurrentRoomOnlineCount();
     }
+    
   } catch (error) {
     console.error('Error loading online users:', error);
   }
 }
 
-// Update Room Online Counts
-function updateRoomOnlineCounts() {
-  document.querySelectorAll('.room-item').forEach(roomEl => {
-    const roomId = parseInt(roomEl.dataset.roomId);
-    if (!roomId) return;
-    
-    const room = roomsCache[roomId];
-    if (!room) return;
-    
-    // Count online users in this room
-    let onlineCount = 0;
-    if (room.members) {
-      room.members.forEach(memberId => {
-        if (onlineUsers[memberId]) {
-          onlineCount++;
-        }
-      });
-    }
-    
-    // Update online indicator
-    const onlineIndicator = roomEl.querySelector('.room-online-indicator');
-    if (onlineIndicator && onlineCount > 0) {
-      onlineIndicator.textContent = `${onlineCount} online`;
-      onlineIndicator.style.display = 'block';
-    } else if (onlineIndicator) {
-      onlineIndicator.style.display = 'none';
-    }
-  });
+function updateOnlineCountDisplay() {
+  const onlineCountEl = document.getElementById('onlineCount');
+  if (onlineCountEl) {
+    const count = Object.keys(onlineUsers).length;
+    onlineCountEl.textContent = `${count} online`;
+  }
 }
 
-// Update User UI
+function updateCurrentRoomOnlineCount() {
+  if (!currentRoom) return;
+  
+  let onlineCount = 0;
+  
+  if (currentRoom.members && Array.isArray(currentRoom.members)) {
+    currentRoom.members.forEach(memberId => {
+      if (onlineUsers[memberId]) {
+        onlineCount++;
+      }
+    });
+  }
+  
+  const onlineCountEl = document.getElementById('onlineCount');
+  if (onlineCountEl) {
+    onlineCountEl.textContent = `${onlineCount} online`;
+  }
+}
+
 function updateUserUI() {
   const sidebarAvatar = document.getElementById('sidebarAvatar');
   const sidebarUsername = document.getElementById('sidebarUsername');
   
-  sidebarUsername.textContent = currentUser.username;
+  if (sidebarUsername) {
+    sidebarUsername.textContent = currentUser.username;
+  }
   
-  if (currentUser.avatar_url) {
-    sidebarAvatar.innerHTML = `<img src="${currentUser.avatar_url}">`;
-  } else {
-    sidebarAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+  if (sidebarAvatar) {
+    if (currentUser.avatar_url) {
+      sidebarAvatar.innerHTML = `<img src="${currentUser.avatar_url}">`;
+    } else {
+      sidebarAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+    }
   }
 }
 
-// Switch Tab
 function switchTab(tab) {
-  // Update tab buttons
   document.querySelectorAll('.nav-tab').forEach(t => {
     t.classList.remove('active');
     if (t.getAttribute('data-tab') === tab) {
@@ -193,7 +169,6 @@ function switchTab(tab) {
     }
   });
   
-  // Update content sections
   document.querySelectorAll('.content-section').forEach(s => {
     s.classList.remove('active');
   });
@@ -209,7 +184,6 @@ function switchTab(tab) {
   }
 }
 
-// Load Users
 async function loadUsers() {
   try {
     const supabase = getSupabase();
@@ -220,7 +194,7 @@ async function loadUsers() {
     
     if (error) throw error;
     
-    // Cache users
+    usersCache = {};
     data.forEach(user => {
       usersCache[user.id] = user;
     });
@@ -231,19 +205,17 @@ async function loadUsers() {
   }
 }
 
-// Get User
 function getUser(userId) {
   return usersCache[userId] || { id: userId, username: 'Unknown', display_name: 'Unknown' };
 }
 
-// Update Presence
 async function updatePresence() {
   if (!currentUser) return;
   
   try {
     const supabase = getSupabase();
     
-    const { error } = await supabase
+    await supabase
       .from('presence')
       .upsert({
         user_id: currentUser.id,
@@ -252,134 +224,85 @@ async function updatePresence() {
         last_seen: new Date().toISOString()
       });
     
-    if (error) throw error;
   } catch (error) {
     console.error('Error updating presence:', error);
   }
 }
 
-// Subscribe to Real-time Updates
 function subscribeToRealtimeUpdates() {
   const supabase = getSupabase();
   
   console.log('Setting up realtime subscriptions...');
   
-  // Subscribe to messages table
-  const messagesChannel = supabase
+  // Messages
+  supabase
     .channel('public:messages')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages'
-      },
-      (payload) => {
-        console.log('New message received:', payload);
-        handleMessageInsert(payload.new);
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages'
-      },
-      (payload) => {
-        console.log('Message updated:', payload);
-        handleMessageUpdate(payload.new);
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'messages'
-      },
-      (payload) => {
-        console.log('Message deleted:', payload);
-        handleMessageDelete(payload.old);
-      }
-    )
-    .subscribe((status) => {
-      console.log('Messages subscription status:', status);
-    });
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      handleMessageInsert(payload.new);
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      handleMessageUpdate(payload.new);
+    })
+    .on('postgres_changes', {
+      event: 'DELETE',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      handleMessageDelete(payload.old);
+    })
+    .subscribe();
   
-  // Subscribe to presence table
-  const presenceChannel = supabase
+  // Presence
+  supabase
     .channel('public:presence')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'presence'
-      },
-      (payload) => {
-        handlePresenceUpdate(payload);
-      }
-    )
-    .subscribe((status) => {
-      console.log('Presence subscription status:', status);
-    });
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'presence'
+    }, () => {
+      loadOnlineUsers();
+    })
+    .subscribe();
   
-  // Subscribe to rooms table
-  const roomsChannel = supabase
+  // Rooms
+  supabase
     .channel('public:rooms')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'rooms'
-      },
-      (payload) => {
-        console.log('Rooms updated:', payload);
-        loadRooms();
-      }
-    )
-    .subscribe((status) => {
-      console.log('Rooms subscription status:', status);
-    });
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'rooms'
+    }, () => {
+      loadRooms();
+    })
+    .subscribe();
   
-  // Subscribe to friendships table
-  const friendshipsChannel = supabase
+  // Friendships
+  supabase
     .channel('public:friendships')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'friendships'
-      },
-      (payload) => {
-        console.log('Friendships updated:', payload);
-        loadFriends();
-      }
-    )
-    .subscribe((status) => {
-      console.log('Friendships subscription status:', status);
-    });
-  
-  console.log('All realtime subscriptions set up!');
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'friendships'
+    }, () => {
+      loadFriends();
+    })
+    .subscribe();
 }
 
-// Handle Message Insert
 function handleMessageInsert(message) {
-  console.log('Processing new message:', message);
-  
-  // Check if message is for current room/DM
   if (currentRoom && message.room_id === currentRoom.id) {
-    console.log('Message is for current room, adding to UI');
     addMessageToUI(message);
   } else if (currentDM && message.room_id === currentDM.id) {
-    console.log('Message is for current DM, adding to UI');
     addMessageToUI(message);
   } else {
-    console.log('Message is for different room, showing badge');
-    // Message for another room - show badge
     if (!unreadRooms[message.room_id]) {
       unreadRooms[message.room_id] = 0;
     }
@@ -388,9 +311,7 @@ function handleMessageInsert(message) {
   }
 }
 
-// Update Room Badges
 function updateRoomBadges() {
-  // Update room list badges
   document.querySelectorAll('.room-item').forEach(roomEl => {
     const roomId = parseInt(roomEl.dataset.roomId);
     const unreadCount = unreadRooms[roomId] || 0;
@@ -401,75 +322,25 @@ function updateRoomBadges() {
       if (!badge) {
         badge = document.createElement('div');
         badge.className = 'unread-badge';
+        badge.style.cssText = 'position: absolute; top: 8px; right: 8px; background: #f23f43; color: white; border-radius: 10px; padding: 2px 6px; font-size: 11px; font-weight: 700;';
+        roomEl.style.position = 'relative';
         roomEl.appendChild(badge);
       }
       badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-      badge.style.cssText = `
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background: #f23f43;
-        color: white;
-        border-radius: 10px;
-        padding: 2px 6px;
-        font-size: 11px;
-        font-weight: 700;
-        min-width: 18px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      `;
     } else if (badge) {
       badge.remove();
     }
   });
-  
-  // Update tab badge (red dot)
-  updateTabBadge();
 }
 
-// Update Tab Badge (Red Dot)
-function updateTabBadge() {
-  const totalUnread = Object.values(unreadRooms).reduce((a, b) => a + b, 0);
-  const roomsTab = document.querySelector('.nav-tab[data-tab="rooms"]');
-  
-  if (!roomsTab) return;
-  
-  let redDot = roomsTab.querySelector('.notification-dot');
-  
-  if (totalUnread > 0) {
-    if (!redDot) {
-      redDot = document.createElement('div');
-      redDot.className = 'notification-dot';
-      redDot.style.cssText = `
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        width: 8px;
-        height: 8px;
-        background: #f23f43;
-        border-radius: 50%;
-        box-shadow: 0 0 0 2px var(--bg-primary);
-      `;
-      roomsTab.style.position = 'relative';
-      roomsTab.appendChild(redDot);
-    }
-  } else if (redDot) {
-    redDot.remove();
-  }
-}
-
-// Handle Message Update
 function handleMessageUpdate(message) {
   const msgEl = document.getElementById(`msg-${message.id}`);
   if (msgEl) {
-    // Remove old message
     msgEl.remove();
-    // Add updated message
     addMessageToUI(message);
   }
 }
 
-// Handle Message Delete
 function handleMessageDelete(message) {
   const msgEl = document.getElementById(`msg-${message.id}`);
   if (msgEl) {
@@ -477,55 +348,20 @@ function handleMessageDelete(message) {
   }
 }
 
-// Handle Presence Update
-function handlePresenceUpdate(payload) {
-  if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-    const presence = payload.new;
-    
-    if (presence.is_online) {
-      onlineUsers[presence.user_id] = presence;
-    } else {
-      delete onlineUsers[presence.user_id];
-    }
-    
-    // Update UI
-    updateRoomOnlineCounts();
-    
-    // Update friends list if visible
-    if (currentFriendTab) {
-      loadFriends();
-    }
-  }
-}
-
-// Select Room (clear unread for this room)
-function selectRoom(roomId) {
-  // Clear unread count
-  delete unreadRooms[roomId];
-  updateRoomBadges();
-  
-  // Continue with normal room selection
-  // (rest of selectRoom function)
-}
-
-// Toggle User Menu
 function toggleUserMenu() {
   const menu = document.getElementById('userMenu');
   menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
 
-// Close dropdowns when clicking outside
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.user-section')) {
     document.getElementById('userMenu').style.display = 'none';
   }
 });
 
-// Logout
 function logout() {
   if (!confirm('Are you sure you want to log out?')) return;
   
-  // Set offline before logout
   const supabase = getSupabase();
   supabase.from('presence')
     .update({ is_online: false })
@@ -536,8 +372,8 @@ function logout() {
     });
 }
 
-// Utility Functions
 function escapeHtml(text) {
+  if (!text) return '';
   const map = {
     '&': '&amp;',
     '<': '&lt;',
@@ -553,30 +389,11 @@ function formatTime(timestamp) {
   const now = new Date();
   const diff = now - date;
   
-  // Less than 1 minute
-  if (diff < 60000) {
-    return 'Just now';
-  }
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
   
-  // Less than 1 hour
-  if (diff < 3600000) {
-    const minutes = Math.floor(diff / 60000);
-    return `${minutes}m ago`;
-  }
-  
-  // Less than 24 hours
-  if (diff < 86400000) {
-    const hours = Math.floor(diff / 3600000);
-    return `${hours}h ago`;
-  }
-  
-  // Less than 7 days
-  if (diff < 604800000) {
-    const days = Math.floor(diff / 86400000);
-    return `${days}d ago`;
-  }
-  
-  // Format as date
   return date.toLocaleDateString();
 }
 
@@ -584,36 +401,22 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
-  toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: var(--bg-secondary); color: var(--text-primary); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000; animation: slideInRight 0.3s ease;';
+  toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: var(--bg-secondary); color: var(--text-primary); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000;';
   
-  if (type === 'success') toast.style.background = 'var(--success)';
-  if (type === 'error') toast.style.background = 'var(--danger)';
-  if (type === 'warning') toast.style.background = 'var(--warning)';
+  if (type === 'success') toast.style.background = '#43b581';
+  if (type === 'error') toast.style.background = '#f04747';
+  if (type === 'warning') toast.style.background = '#faa61a';
   
   document.body.appendChild(toast);
   
-  setTimeout(() => {
-    toast.style.animation = 'slideOutRight 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 function toggleRoomInfo() {
   const panel = document.getElementById('roomInfoPanel');
-  panel.classList.toggle('active');
+  if (panel) panel.classList.toggle('active');
 }
 
-function loadRoomInfo() {
-  if (!currentRoom) return;
-  
-  const content = document.getElementById('roomInfoContent');
-  content.innerHTML = `
-    <h4>${escapeHtml(currentRoom.name)}</h4>
-    <p>${escapeHtml(currentRoom.description || 'No description')}</p>
-  `;
-}
-
-// Set user offline when leaving
 window.addEventListener('beforeunload', () => {
   if (currentUser) {
     const supabase = getSupabase();
@@ -623,4 +426,4 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-console.log('App.js loaded (WITH ONLINE STATUS & NOTIFICATION BADGES)');
+console.log('App.js loaded (FIXED)');
