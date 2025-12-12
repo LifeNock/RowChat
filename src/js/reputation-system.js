@@ -147,19 +147,40 @@ async function openProfileView(userId) {
     
     if (error) throw error;
     
-    // Load user stats
-    const { data: stats } = await supabase
-      .from('user_stats')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    // Load user stats (may not exist)
+    let stats = null;
+    try {
+      const { data: statsData } = await supabase
+        .from('user_stats')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      stats = statsData;
+    } catch (statsError) {
+      console.log('No stats found for user:', statsError);
+    }
     
-    // Load friendship status
-    const { data: friendship } = await supabase
-      .from('friendships')
-      .select('*')
-      .or(`and(user1_id.eq.${currentUser.id},user2_id.eq.${userId}),and(user1_id.eq.${userId},user2_id.eq.${currentUser.id})`)
-      .single();
+    // Load friendship status (may not exist)
+    let friendship = null;
+    try {
+      const { data: friendshipData } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`user1_id.eq.${currentUser.id},user2_id.eq.${userId}`)
+        .or(`user1_id.eq.${userId},user2_id.eq.${currentUser.id}`)
+        .maybeSingle();
+      
+      // Filter to ensure it's the right friendship
+      if (friendshipData) {
+        if ((friendshipData.user1_id === currentUser.id && friendshipData.user2_id === userId) ||
+            (friendshipData.user1_id === userId && friendshipData.user2_id === currentUser.id)) {
+          friendship = friendshipData;
+        }
+      }
+    } catch (friendError) {
+      console.log('No friendship found:', friendError);
+    }
     
     renderProfileSidebar(user, stats, friendship);
     
