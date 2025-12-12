@@ -64,6 +64,9 @@ async function initializeApp() {
     await updatePresence();
     await loadOnlineUsers();
     
+    // Load theme and font preferences
+    await loadUserPreferences();
+    
     updateUserUI();
     subscribeToRealtimeUpdates();
     
@@ -79,6 +82,42 @@ async function initializeApp() {
     console.error('Error initializing app:', error);
     showLoading(false);
     showToast('Failed to initialize app', 'error');
+  }
+}
+
+// Load user preferences (theme and font)
+async function loadUserPreferences() {
+  try {
+    const supabase = getSupabase();
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('theme, font_family')
+      .eq('id', currentUser.id)
+      .single();
+    
+    if (error) throw error;
+    
+    // Apply theme
+    if (data.theme && data.theme.preset) {
+      document.body.setAttribute('data-theme', data.theme.preset);
+      currentUser.theme = data.theme;
+    }
+    
+    // Apply font
+    if (data.font_family) {
+      const font = FONTS.find(f => f.name === data.font_family);
+      if (font) {
+        document.documentElement.style.setProperty('--font-family', font.value);
+        currentUser.font_family = data.font_family;
+      }
+    }
+    
+    // Update localStorage
+    localStorage.setItem('rowchat-user', JSON.stringify(currentUser));
+    
+  } catch (error) {
+    console.error('Error loading user preferences:', error);
   }
 }
 
