@@ -92,11 +92,21 @@ async function loadUserPreferences() {
     
     const { data, error } = await supabase
       .from('users')
-      .select('theme, font_family')
+      .select('theme, font_family, role, status_message')
       .eq('id', currentUser.id)
       .single();
     
     if (error) throw error;
+    
+    // Update role
+    if (data.role) {
+      currentUser.role = data.role;
+    }
+    
+    // Update status
+    if (data.status_message) {
+      currentUser.status_message = data.status_message;
+    }
     
     // Apply theme
     if (data.theme && data.theme.preset) {
@@ -115,6 +125,8 @@ async function loadUserPreferences() {
     
     // Update localStorage
     localStorage.setItem('rowchat-user', JSON.stringify(currentUser));
+    
+    console.log('User role:', currentUser.role);
     
   } catch (error) {
     console.error('Error loading user preferences:', error);
