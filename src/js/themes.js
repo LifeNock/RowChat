@@ -203,6 +203,8 @@ function switchSettingsTab(tabName) {
   // Load data for specific tabs
   if (tabName === 'badges' && typeof loadBadgeSettings === 'function') {
     loadBadgeSettings();
+  } else if (tabName === 'leaderboard' && typeof loadLeaderboard === 'function') {
+    loadLeaderboard(currentLeaderboardCategory || 'reputation');
   }
 }
 
