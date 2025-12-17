@@ -74,6 +74,10 @@ async function initializeApp() {
     if (currentUser.role === 'admin') {
       const adminSection = document.getElementById('adminDmsSection');
       if (adminSection) adminSection.style.display = 'block';
+      
+      // Show admin panel link in user menu
+      const adminPanelLink = document.getElementById('adminPanelLink');
+      if (adminPanelLink) adminPanelLink.style.display = 'flex';
     }
     
     // Update presence every 30 seconds
