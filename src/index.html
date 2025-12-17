@@ -363,6 +363,9 @@
           <button class="settings-tab active" data-tab="badges" onclick="switchSettingsTab('badges')">
             Badges
           </button>
+          <button class="settings-tab" data-tab="leaderboard" onclick="switchSettingsTab('leaderboard')">
+            Leaderboard
+          </button>
           <button class="settings-tab" data-tab="notifications" onclick="switchSettingsTab('notifications')">
             Notifications
           </button>
@@ -423,6 +426,20 @@
               <div class="locked-badges-grid" id="lockedBadgesGrid">
                 <!-- Locked badges will be populated here -->
               </div>
+            </div>
+          </div>
+          
+          <!-- Leaderboard Tab -->
+          <div class="settings-tab-content" id="settingsLeaderboard">
+            <div class="leaderboard-filters">
+              <button class="leaderboard-filter active" data-category="reputation" onclick="switchLeaderboardCategory('reputation')">Reputation</button>
+              <button class="leaderboard-filter" data-category="level" onclick="switchLeaderboardCategory('level')">Level</button>
+              <button class="leaderboard-filter" data-category="messages" onclick="switchLeaderboardCategory('messages')">Messages</button>
+              <button class="leaderboard-filter" data-category="streak" onclick="switchLeaderboardCategory('streak')">Streak</button>
+            </div>
+            
+            <div class="leaderboard-list" id="leaderboardList">
+              <!-- Leaderboard entries will be populated here -->
             </div>
           </div>
           
@@ -721,5 +738,6 @@
   <script src="js/reputation-system.js"></script>
   <script src="js/gamification.js"></script>
   <script src="js/badge-settings.js"></script>
+  <script src="js/leaderboard.js"></script>
 </body>
 </html>
