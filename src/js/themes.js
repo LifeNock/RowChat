@@ -215,6 +215,20 @@ async function loadSettingsData() {
       await loadBadgeSettings();
     }
     
+    // Load user preferences
+    const supabase = getSupabase();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('hide_priority_badges')
+      .eq('id', currentUser.id)
+      .single();
+    
+    // Set hide priority badges checkbox
+    const hidePriorityBadges = document.getElementById('hidePriorityBadges');
+    if (hidePriorityBadges && userData) {
+      hidePriorityBadges.checked = userData.hide_priority_badges || false;
+    }
+    
     // Load account info
     const memberSince = currentUser.created_at 
       ? new Date(currentUser.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -239,6 +253,24 @@ async function loadSettingsData() {
 
 async function saveSettings() {
   try {
+    const supabase = getSupabase();
+    
+    // Get hide priority badges setting
+    const hidePriorityBadges = document.getElementById('hidePriorityBadges');
+    const hidePriorityBadgesValue = hidePriorityBadges ? hidePriorityBadges.checked : false;
+    
+    // Save privacy settings
+    await supabase
+      .from('users')
+      .update({ hide_priority_badges: hidePriorityBadgesValue })
+      .eq('id', currentUser.id);
+    
+    // Update local cache
+    currentUser.hide_priority_badges = hidePriorityBadgesValue;
+    if (usersCache[currentUser.id]) {
+      usersCache[currentUser.id].hide_priority_badges = hidePriorityBadgesValue;
+    }
+    
     // Save badge settings if the function exists
     if (typeof saveEquippedBadges === 'function') {
       await saveEquippedBadges();
@@ -246,6 +278,13 @@ async function saveSettings() {
     
     showToast('Settings saved!', 'success');
     closeSettingsModal();
+    
+    // Reload messages to update badge display
+    if (currentRoom && typeof loadMessages === 'function') {
+      await loadMessages(currentRoom.id);
+    } else if (currentDM && typeof loadMessages === 'function') {
+      await loadMessages(currentDM.id);
+    }
     
   } catch (error) {
     console.error('Error saving settings:', error);
