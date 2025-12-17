@@ -84,7 +84,9 @@ function equipBadge(badgeType) {
     if (!currentEquippedBadges[i]) {
       currentEquippedBadges[i] = badgeType;
       renderEquippedSlots();
-      renderAvailableBadges(getUserAvailableBadges(currentUser));
+      // Re-render with all available badges, not filtered
+      const allBadges = getUserAvailableBadges(currentUser);
+      renderAvailableBadges(allBadges);
       return;
     }
   }
@@ -96,7 +98,9 @@ function unequipBadge(slotIndex) {
   currentEquippedBadges[slotIndex] = null;
   currentEquippedBadges = currentEquippedBadges.filter(b => b !== null);
   renderEquippedSlots();
-  renderAvailableBadges(getUserAvailableBadges(currentUser));
+  // Re-render with all available badges, not filtered
+  const allBadges = getUserAvailableBadges(currentUser);
+  renderAvailableBadges(allBadges);
 }
 
 function renderAvailableBadges(availableBadges) {
