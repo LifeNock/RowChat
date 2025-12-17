@@ -268,6 +268,24 @@ function renderProfileSidebar(user, stats, friendship) {
         </div>
       </div>
       
+      <!-- Level & Streak Info -->
+      <div class="profile-stats-row">
+        <div class="profile-stat-card">
+          <div class="profile-stat-icon">⭐</div>
+          <div class="profile-stat-info">
+            <div class="profile-stat-label">Level</div>
+            <div class="profile-stat-value">${user.level || 1}</div>
+          </div>
+        </div>
+        <div class="profile-stat-card">
+          <div class="profile-stat-icon">🔥</div>
+          <div class="profile-stat-info">
+            <div class="profile-stat-label">Streak</div>
+            <div class="profile-stat-value">${user.daily_streak || 0} days</div>
+          </div>
+        </div>
+      </div>
+      
       <!-- Bio -->
       ${user.bio ? `
         <div class="profile-section">
