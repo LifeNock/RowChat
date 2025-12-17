@@ -19,6 +19,8 @@
   <link rel="stylesheet" href="css/message-formatting.css">
   <link rel="stylesheet" href="css/admin-features.css">
   <link rel="stylesheet" href="css/reputation-badges.css">
+  <link rel="stylesheet" href="css/gamification.css">
+  <link rel="stylesheet" href="css/settings-modal.css">
   <link rel="stylesheet" href="css/gif-picker-styles.css">
   <link rel="stylesheet" href="css/calls-styles.css">
 </head>
@@ -345,6 +347,167 @@
     </div>
   </div>
 
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="icon-btn" onclick="closeSettingsModal()">
+          <span class="icon icon-x"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Settings Tabs -->
+        <div class="settings-tabs">
+          <button class="settings-tab active" data-tab="badges" onclick="switchSettingsTab('badges')">
+            Badges
+          </button>
+          <button class="settings-tab" data-tab="notifications" onclick="switchSettingsTab('notifications')">
+            Notifications
+          </button>
+          <button class="settings-tab" data-tab="privacy" onclick="switchSettingsTab('privacy')">
+            Privacy
+          </button>
+          <button class="settings-tab" data-tab="account" onclick="switchSettingsTab('account')">
+            Account
+          </button>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="settings-content">
+          
+          <!-- Badges Tab -->
+          <div class="settings-tab-content active" id="settingsBadges">
+            <!-- Equipped Badges Section -->
+            <div class="badge-section">
+              <h3>Equipped Badges (Max 3)</h3>
+              <p class="hint">These badges will be displayed on your profile and messages</p>
+              <div class="equipped-badges-container" id="equippedBadgesContainer">
+                <div class="equipped-badge-slot empty" data-slot="0">
+                  <span class="slot-number">1</span>
+                  <span class="slot-text">Empty Slot</span>
+                </div>
+                <div class="equipped-badge-slot empty" data-slot="1">
+                  <span class="slot-number">2</span>
+                  <span class="slot-text">Empty Slot</span>
+                </div>
+                <div class="equipped-badge-slot empty" data-slot="2">
+                  <span class="slot-number">3</span>
+                  <span class="slot-text">Empty Slot</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Available Badges Section -->
+            <div class="badge-section">
+              <h3>Available Badges</h3>
+              <p class="hint">Click a badge to equip it in an empty slot</p>
+              
+              <!-- Filter Tabs -->
+              <div class="badge-filter-tabs">
+                <button class="badge-filter-tab active" data-filter="all" onclick="filterBadges('all')">All</button>
+                <button class="badge-filter-tab" data-filter="equipped" onclick="filterBadges('equipped')">Equipped</button>
+                <button class="badge-filter-tab" data-filter="unequipped" onclick="filterBadges('unequipped')">Unequipped</button>
+              </div>
+              
+              <div class="available-badges-grid" id="availableBadgesGrid">
+                <!-- Badges will be populated here -->
+              </div>
+            </div>
+            
+            <!-- Locked Badges Section -->
+            <div class="badge-section">
+              <h3>Locked Badges</h3>
+              <p class="hint">Complete challenges to unlock these badges</p>
+              <div class="locked-badges-grid" id="lockedBadgesGrid">
+                <!-- Locked badges will be populated here -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Notifications Tab -->
+          <div class="settings-tab-content" id="settingsNotifications">
+            <div class="setting-group">
+              <h3>Notification Preferences</h3>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <input type="checkbox" id="notifyMentions" checked>
+                  <span>Mentions</span>
+                </label>
+                <p class="setting-description">Get notified when someone @mentions you</p>
+              </div>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <input type="checkbox" id="notifyDMs" checked>
+                  <span>Direct Messages</span>
+                </label>
+                <p class="setting-description">Get notified for new direct messages</p>
+              </div>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <input type="checkbox" id="notifyFriendRequests" checked>
+                  <span>Friend Requests</span>
+                </label>
+                <p class="setting-description">Get notified when someone sends a friend request</p>
+              </div>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <input type="checkbox" id="notifyStreaks" checked>
+                  <span>Streak Reminders</span>
+                </label>
+                <p class="setting-description">Remind me to maintain my login streak</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Privacy Tab -->
+          <div class="settings-tab-content" id="settingsPrivacy">
+            <div class="setting-group">
+              <h3>Privacy Settings</h3>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <input type="checkbox" id="showOnlineStatus" checked>
+                  <span>Show Online Status</span>
+                </label>
+                <p class="setting-description">Let others see when you're online</p>
+              </div>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <input type="checkbox" id="showActivity" checked>
+                  <span>Show Activity</span>
+                </label>
+                <p class="setting-description">Show your current activity to friends</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Account Tab -->
+          <div class="settings-tab-content" id="settingsAccount">
+            <div class="setting-group">
+              <h3>Account Information</h3>
+              <p class="hint">Username: <strong id="settingsUsername"></strong></p>
+              <p class="hint">Member since: <strong id="settingsMemberSince"></strong></p>
+              <p class="hint">Level: <strong id="settingsLevel"></strong></p>
+              <p class="hint">XP: <strong id="settingsXP"></strong></p>
+              <p class="hint">Reputation: <strong id="settingsReputation"></strong></p>
+            </div>
+            <div class="setting-group">
+              <h3>Danger Zone</h3>
+              <button class="btn-danger" onclick="confirmDeleteAccount()">Delete Account</button>
+            </div>
+          </div>
+          
+        </div>
+        
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeSettingsModal()">Close</button>
+        <button class="btn-primary" onclick="saveSettings()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Create Room Modal (Enhanced) -->
   <div class="modal-overlay" id="createRoomModal">
     <div class="modal create-room-modal-large">
@@ -556,5 +719,7 @@
   <script src="js/roles-status.js"></script>
   <script src="js/admin-features.js"></script>
   <script src="js/reputation-system.js"></script>
+  <script src="js/gamification.js"></script>
+  <script src="js/badge-settings.js"></script>
 </body>
 </html>
