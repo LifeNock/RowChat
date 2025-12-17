@@ -175,7 +175,114 @@ function applyTheme(themeConfig) {
 // Open Settings Modal (placeholder)
 function openSettingsModal() {
   document.getElementById('userMenu').style.display = 'none';
-  showToast('Settings coming soon!', 'info');
+  document.getElementById('settingsModal')?.classList.add('active');
+  
+  // Load settings data if the function exists
+  if (typeof loadSettingsData === 'function') {
+    loadSettingsData();
+  }
+}
+
+function closeSettingsModal() {
+  document.getElementById('settingsModal')?.classList.remove('active');
+}
+
+function switchSettingsTab(tabName) {
+  // Update tab buttons
+  document.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
+  
+  // Update content
+  document.querySelectorAll('.settings-tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  document.getElementById(`settings${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`)?.classList.add('active');
+  
+  // Load data for specific tabs
+  if (tabName === 'badges' && typeof loadBadgeSettings === 'function') {
+    loadBadgeSettings();
+  }
+}
+
+async function loadSettingsData() {
+  try {
+    // Load badge settings (default tab)
+    if (typeof loadBadgeSettings === 'function') {
+      await loadBadgeSettings();
+    }
+    
+    // Load account info
+    const memberSince = currentUser.created_at 
+      ? new Date(currentUser.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      : 'Unknown';
+    
+    const usernameEl = document.getElementById('settingsUsername');
+    const memberSinceEl = document.getElementById('settingsMemberSince');
+    const levelEl = document.getElementById('settingsLevel');
+    const xpEl = document.getElementById('settingsXP');
+    const reputationEl = document.getElementById('settingsReputation');
+    
+    if (usernameEl) usernameEl.textContent = currentUser.username;
+    if (memberSinceEl) memberSinceEl.textContent = memberSince;
+    if (levelEl) levelEl.textContent = currentUser.level || 1;
+    if (xpEl) xpEl.textContent = currentUser.xp || 0;
+    if (reputationEl) reputationEl.textContent = currentUser.reputation || 0;
+    
+  } catch (error) {
+    console.error('Error loading settings:', error);
+  }
+}
+
+async function saveSettings() {
+  try {
+    // Save badge settings if the function exists
+    if (typeof saveEquippedBadges === 'function') {
+      await saveEquippedBadges();
+    }
+    
+    showToast('Settings saved!', 'success');
+    closeSettingsModal();
+    
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    showToast('Failed to save settings', 'error');
+  }
+}
+
+function confirmDeleteAccount() {
+  if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+    if (confirm('FINAL WARNING: All your data will be permanently deleted. Type your username to confirm.')) {
+      const username = prompt('Enter your username to confirm deletion:');
+      if (username === currentUser.username) {
+        deleteAccount();
+      } else {
+        showToast('Username does not match', 'error');
+      }
+    }
+  }
+}
+
+async function deleteAccount() {
+  try {
+    const supabase = getSupabase();
+    
+    // Delete user account
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', currentUser.id);
+    
+    if (error) throw error;
+    
+    showToast('Account deleted', 'info');
+    logout();
+    
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    showToast('Failed to delete account', 'error');
+  }
 }
 
 console.log('Themes.js loaded');
