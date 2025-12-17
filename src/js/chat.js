@@ -174,13 +174,24 @@ function addMessageToUI(message) {
   username.className = 'message-username';
   const displayName = message.username || user.username || 'Unknown';
   
-  // Get role badge (ADMIN, ROOM MASTER)
   let badgesHTML = '';
-  if (typeof getRoleBadge === 'function') {
-    badgesHTML = getRoleBadge(displayName, user.role);
+  
+  // Check if user wants to hide priority badges
+  const hidePriorityBadges = user.hide_priority_badges || false;
+  
+  if (!hidePriorityBadges) {
+    // Show role badge (ADMIN, ROOM MASTER) if not hidden
+    if (typeof getRoleBadge === 'function') {
+      badgesHTML = getRoleBadge(displayName, user.role);
+    }
+    
+    // Show reputation tier badge if not hidden
+    if (user.reputation !== undefined && typeof getReputationBadge === 'function') {
+      badgesHTML += getReputationBadge(user.reputation);
+    }
   }
   
-  // Add equipped badges
+  // Always show equipped badges
   if (user.equipped_badges && Array.isArray(user.equipped_badges)) {
     user.equipped_badges.forEach(badgeType => {
       if (typeof ALL_BADGES !== 'undefined' && ALL_BADGES[badgeType]) {
