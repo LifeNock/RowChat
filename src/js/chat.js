@@ -180,14 +180,9 @@ function addMessageToUI(message) {
   const hidePriorityBadges = user.hide_priority_badges || false;
   
   if (!hidePriorityBadges) {
-    // Show role badge (ADMIN, ROOM MASTER) if not hidden
+    // Show role badge (ADMIN, ROOM MASTER) + reputation tier badge
     if (typeof getRoleBadge === 'function') {
       badgesHTML = getRoleBadge(displayName, user.role);
-    }
-    
-    // Show reputation tier badge if not hidden
-    if (user.reputation !== undefined && typeof getReputationBadge === 'function') {
-      badgesHTML += getReputationBadge(user.reputation);
     }
   }
   
