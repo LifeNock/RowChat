@@ -187,6 +187,49 @@
   margin-bottom: 24px;
 }
 
+.profile-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.profile-stat-card {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-stat-icon {
+  font-size: 32px;
+}
+
+.profile-stat-info {
+  flex: 1;
+}
+
+.profile-stat-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.profile-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.profile-section {
+  margin-bottom: 24px;
+}
+
 .profile-section-title {
   font-size: 12px;
   font-weight: 700;
