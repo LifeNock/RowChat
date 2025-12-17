@@ -173,7 +173,24 @@ function addMessageToUI(message) {
   const username = document.createElement('span');
   username.className = 'message-username';
   const displayName = message.username || user.username || 'Unknown';
-  username.innerHTML = displayName + (typeof getRoleBadge === 'function' ? getRoleBadge(displayName, user.role) : '');
+  
+  // Get role badge (ADMIN, ROOM MASTER)
+  let badgesHTML = '';
+  if (typeof getRoleBadge === 'function') {
+    badgesHTML = getRoleBadge(displayName, user.role);
+  }
+  
+  // Add equipped badges
+  if (user.equipped_badges && Array.isArray(user.equipped_badges)) {
+    user.equipped_badges.forEach(badgeType => {
+      if (typeof ALL_BADGES !== 'undefined' && ALL_BADGES[badgeType]) {
+        const badge = ALL_BADGES[badgeType];
+        badgesHTML += `<span class="user-badge ${badge.color}">${badge.name}</span>`;
+      }
+    });
+  }
+  
+  username.innerHTML = displayName + badgesHTML;
   username.style.cursor = 'pointer';
   username.onclick = () => {
     if (message.user_id !== currentUser.id) {
