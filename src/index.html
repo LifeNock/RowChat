@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/reputation-badges.css">
   <link rel="stylesheet" href="css/gamification.css">
   <link rel="stylesheet" href="css/settings-modal.css">
+  <link rel="stylesheet" href="css/moderation.css">
   <link rel="stylesheet" href="css/gif-picker-styles.css">
   <link rel="stylesheet" href="css/calls-styles.css">
 </head>
@@ -281,6 +282,9 @@
     </div>
     <div class="dropdown-item" onclick="openThemeModal()">
       <span class="icon icon-palette"></span> Themes & Appearance
+    </div>
+    <div class="dropdown-item" onclick="openAdminPanel()" id="adminPanelLink" style="display: none;">
+      <span class="icon icon-shield"></span> Admin Panel
     </div>
     <div class="dropdown-item" onclick="openSettingsModal()">
       <span class="icon icon-settings"></span> Settings
@@ -703,6 +707,237 @@
     <img id="modalImage" src="">
   </div>
 
+  <!-- MODERATION MODALS START -->
+  
+  <!-- Admin Panel Modal -->
+  <div class="modal-overlay" id="adminPanelModal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h2>Admin Panel</h2>
+        <button class="icon-btn" onclick="closeAdminPanel()">
+          <span class="icon icon-x"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-admin-tab="dashboard" onclick="switchAdminTab('dashboard')">Dashboard</button>
+          <button class="admin-tab" data-admin-tab="bans" onclick="switchAdminTab('bans')">Bans</button>
+          <button class="admin-tab" data-admin-tab="timeouts" onclick="switchAdminTab('timeouts')">Timeouts</button>
+          <button class="admin-tab" data-admin-tab="flagged" onclick="switchAdminTab('flagged')">Flagged</button>
+          <button class="admin-tab" data-admin-tab="reports" onclick="switchAdminTab('reports')">Reports</button>
+          <button class="admin-tab" data-admin-tab="audit" onclick="switchAdminTab('audit')">Audit Logs</button>
+          <button class="admin-tab" data-admin-tab="filters" onclick="switchAdminTab('filters')">Filters</button>
+          <button class="admin-tab" data-admin-tab="words" onclick="switchAdminTab('words')">Bad Words</button>
+        </div>
+        <div class="admin-content">
+          <div class="admin-tab-content active" id="adminDashboard">
+            <h3>Overview</h3>
+            <div class="dashboard-stats">
+              <div class="stat-card">
+                <div class="stat-card-value" id="statsActiveBans">0</div>
+                <div class="stat-card-label">Active Bans</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" id="statsActiveTimeouts">0</div>
+                <div class="stat-card-label">Active Timeouts</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" id="statsActiveWarnings">0</div>
+                <div class="stat-card-label">Active Warnings</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" id="statsFlaggedMessages">0</div>
+                <div class="stat-card-label">Flagged Messages</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card-value" id="statsPendingReports">0</div>
+                <div class="stat-card-label">Pending Reports</div>
+              </div>
+            </div>
+            <h3>Recent Actions</h3>
+            <div id="recentActionsList"></div>
+          </div>
+          <div class="admin-tab-content" id="adminBans">
+            <h3>Active Bans</h3>
+            <div id="bansList"></div>
+          </div>
+          <div class="admin-tab-content" id="adminTimeouts">
+            <h3>Active Timeouts</h3>
+            <div id="timeoutsList"></div>
+          </div>
+          <div class="admin-tab-content" id="adminFlagged">
+            <h3>Flagged Messages</h3>
+            <div id="flaggedMessagesList"></div>
+          </div>
+          <div class="admin-tab-content" id="adminReports">
+            <h3>Pending Reports</h3>
+            <div id="reportsList"></div>
+          </div>
+          <div class="admin-tab-content" id="adminAudit">
+            <h3>Audit Logs</h3>
+            <div id="auditLogsList"></div>
+          </div>
+          <div class="admin-tab-content" id="adminFilters">
+            <h3>Auto-Moderation Filters</h3>
+            <div id="filterSettingsList"></div>
+          </div>
+          <div class="admin-tab-content" id="adminWords">
+            <h3>Custom Bad Words</h3>
+            <button class="add-bad-word-btn" onclick="addBadWord()">Add Word</button>
+            <div id="badWordsList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeAdminPanel()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ban User Modal -->
+  <div class="modal-overlay" id="banModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Ban User</h2>
+        <button class="icon-btn" onclick="closeBanModal()">
+          <span class="icon icon-x"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="banUsername" readonly>
+          <input type="hidden" id="banUserId">
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <textarea id="banReason" placeholder="Enter ban reason..." rows="3" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Ban Type</label>
+          <select id="banType" onchange="toggleBanDuration()">
+            <option value="permanent">Permanent</option>
+            <option value="temporary">Temporary</option>
+          </select>
+        </div>
+        <div class="form-group" id="banDurationGroup" style="display: none;">
+          <label>Duration</label>
+          <select id="banDuration">
+            <option value="3600000">1 Hour</option>
+            <option value="21600000">6 Hours</option>
+            <option value="86400000">24 Hours</option>
+            <option value="259200000">3 Days</option>
+            <option value="604800000">7 Days</option>
+            <option value="2592000000">30 Days</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeBanModal()">Cancel</button>
+        <button class="btn-danger" onclick="executeBan()">Ban User</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeout User Modal -->
+  <div class="modal-overlay" id="timeoutModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Timeout User</h2>
+        <button class="icon-btn" onclick="closeTimeoutModal()">
+          <span class="icon icon-x"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="timeoutUsername" readonly>
+          <input type="hidden" id="timeoutUserId">
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <textarea id="timeoutReason" placeholder="Enter timeout reason..." rows="3" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Duration</label>
+          <div class="timeout-quick-buttons">
+            <button class="timeout-quick-btn" onclick="setTimeoutDuration(60000)">1 Min</button>
+            <button class="timeout-quick-btn" onclick="setTimeoutDuration(300000)">5 Min</button>
+            <button class="timeout-quick-btn" onclick="setTimeoutDuration(600000)">10 Min</button>
+            <button class="timeout-quick-btn" onclick="setTimeoutDuration(3600000)">1 Hour</button>
+            <button class="timeout-quick-btn" onclick="setTimeoutDuration(86400000)">24 Hours</button>
+          </div>
+          <input type="number" id="timeoutDuration" placeholder="Custom duration (minutes)" min="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeTimeoutModal()">Cancel</button>
+        <button class="btn-warning" onclick="executeTimeout()">Timeout User</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Warn User Modal -->
+  <div class="modal-overlay" id="warnModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Warn User</h2>
+        <button class="icon-btn" onclick="closeWarnModal()">
+          <span class="icon icon-x"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="warnUsername" readonly>
+          <input type="hidden" id="warnUserId">
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <textarea id="warnReason" placeholder="Enter warning reason..." rows="3" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Severity</label>
+          <select id="warnSeverity">
+            <option value="1">Level 1 - Yellow (Friendly Warning)</option>
+            <option value="2">Level 2 - Orange (10 min timeout)</option>
+            <option value="3">Level 3 - Red (1 hour timeout)</option>
+            <option value="4">Level 4+ - Escalating Ban</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeWarnModal()">Cancel</button>
+        <button class="btn-warning" onclick="executeWarn()">Warn User</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Send Sensitive Data Modal -->
+  <div class="modal-overlay" id="confirmSensitiveModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Confirm Message</h2>
+        <button class="icon-btn" onclick="closeConfirmSensitiveModal()">
+          <span class="icon icon-x"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmSensitiveMessage"></p>
+        <p style="font-size: 14px; color: var(--text-secondary); margin-top: 12px;">
+          Sharing personal information like emails, phone numbers, or IP addresses can be risky. 
+          Make sure you trust who you're sharing this with.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="cancelSensitiveMessage()">Cancel</button>
+        <button class="btn-primary" onclick="confirmSensitiveMessage()">Yes, Send It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODERATION MODALS END -->
+
   <!-- Supabase Configuration -->
   <script>
     console.log('Initializing Supabase...');
@@ -750,5 +985,6 @@
   <script src="js/gamification.js"></script>
   <script src="js/badge-settings.js"></script>
   <script src="js/leaderboard.js"></script>
+  <script src="js/moderation.js"></script>
 </body>
 </html>
