@@ -205,7 +205,29 @@ function renderProfileSidebar(user, stats, friendship) {
   sidebar.className = 'profile-sidebar';
   
   // Get user badges
-  const badges = getUserBadges(user);
+  const badges = [];
+  
+  // Check if user wants to hide priority badges
+  const hidePriorityBadges = user.hide_priority_badges || false;
+  
+  if (!hidePriorityBadges) {
+    // Add reputation tier badge if not hidden
+    if (user.reputation !== undefined) {
+      const tier = getReputationTier(user.reputation);
+      badges.push({ type: tier.tier, name: tier.name });
+    }
+  }
+  
+  // Add equipped badges (always shown)
+  if (user.equipped_badges && Array.isArray(user.equipped_badges)) {
+    user.equipped_badges.forEach(badgeType => {
+      if (ALL_BADGES[badgeType]) {
+        const badge = ALL_BADGES[badgeType];
+        badges.push({ type: badgeType, name: badge.name });
+      }
+    });
+  }
+  
   const badgesHTML = renderBadges(badges);
   
   // Calculate next tier
