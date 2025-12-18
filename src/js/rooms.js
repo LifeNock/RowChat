@@ -49,9 +49,36 @@ async function loadRooms() {
     });
     
     renderRoomList(visibleRooms);
+    
+    // Update online counts every second
+    if (!window.roomOnlineUpdateInterval) {
+      window.roomOnlineUpdateInterval = setInterval(updateAllRoomOnlineCounts, 1000);
+    }
   } catch (error) {
     console.error('Error loading rooms:', error);
   }
+}
+
+function updateAllRoomOnlineCounts() {
+  const roomItems = document.querySelectorAll('.room-item');
+  
+  roomItems.forEach(roomDiv => {
+    const roomId = roomDiv.dataset.roomId;
+    const room = roomsCache[roomId];
+    
+    if (!room) return;
+    
+    const onlineCount = countOnlineMembers(room);
+    const metaDiv = roomDiv.querySelector('.room-item-meta');
+    
+    if (metaDiv) {
+      if (onlineCount > 0) {
+        metaDiv.innerHTML = `<span class="room-online-count">${onlineCount} online</span>`;
+      } else {
+        metaDiv.innerHTML = '<span class="room-offline-text">No one online</span>';
+      }
+    }
+  });
 }
 
 async function canUserSeeRoom(room) {
