@@ -620,4 +620,95 @@ input:checked + .toggle-slider:before {
 
 .add-bad-word-btn:hover {
   opacity: 0.9;
-                  }
+}
+
+/* Personal Filters */
+.add-filter-section {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.add-filter-section input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.add-filter-section input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.personal-filters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.personal-filter-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.personal-filter-word {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: monospace;
+}
+
+.personal-filter-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.personal-filter-remove:hover {
+  background: var(--bg-hover);
+  color: #f04747;
+}
+
+/* Blurred Word in Messages */
+.blurred-word {
+  background: var(--bg-tertiary);
+  color: transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  user-select: none;
+  filter: blur(5px);
+  transition: filter 0.2s;
+  display: inline-block;
+}
+
+.blurred-word:hover {
+  filter: blur(3px);
+}
+
+.blurred-word.revealed {
+  filter: blur(0);
+  color: var(--text-primary);
+  background: rgba(240, 71, 71, 0.2);
+}
+
+.empty-filters {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
