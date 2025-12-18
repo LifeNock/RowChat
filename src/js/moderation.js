@@ -3,25 +3,30 @@
 // ==================== BAD WORD LISTS ====================
 
 const SLURS = [
-  // Racial slurs
-  'n*gger', 'n*gga', 'ch*nk', 'sp*c', 'k*ke', 'w*tback', 'g**k', 'c**n', 'r*dskin',
+  // Racial slurs (exact words only)
+  'nigger', 'nigga', 'nig', 'chink', 'spic', 'kike', 'wetback', 'gook', 'coon', 'redskin',
+  'paki', 'beaner', 'cracker', 'zipperhead', 'towelhead', 'sandnigger', 'n1gger', 'n1gga',
   // Homophobic slurs
-  'f*ggot', 'f*g', 'd*ke', 'tr*nny',
+  'faggot', 'fag', 'dyke', 'tranny', 'f4ggot', 'f4g',
   // Misogynistic slurs
-  'c*nt', 'wh*re', 'sl*t', 'b*tch',
+  'cunt', 'whore', 'slut', 'bitch', 'c0nt',
   // Religious slurs
-  'r*ghead', 'h*jab*',
+  'raghead',
   // Disability slurs
-  'r*tard', 'r*tarded', 'cr*pple'
-].map(word => word.toLowerCase());
+  'retard', 'retarded', 'cripple', 'r3tard', 'r3tarded'
+];
 
 const BAD_WORDS = [
-  'f*ck', 'sh*t', 'p*ss', 'd*mn', 'h*ll', 'a*s', 'b*stard', 'c*ck', 'd*ck', 'p*ssy'
-].map(word => word.toLowerCase());
+  // Profanity (exact words only)
+  'fuck', 'shit', 'piss', 'damn', 'ass', 'bastard', 'cock', 'dick', 'pussy',
+  'fuk', 'fck', 'f0ck', 'sh1t', 'sh!t', 'a55', 'b1tch', 'd1ck', 'p0rn',
+  'asshole', 'arsehole', 'bullshit', 'motherfucker', 'mf', 'mofo'
+];
 
 const SELF_HARM_PHRASES = [
   'kill yourself', 'kys', 'neck yourself', 'end yourself', 'commit suicide',
-  'hang yourself', 'k y s', 'k.y.s', 'unalive yourself'
+  'hang yourself', 'k y s', 'k.y.s', 'k-y-s', 'unalive yourself', 'rope yourself',
+  'kill your self', 'end your life', 'kms', 'kill my self'
 ];
 
 const SCAM_PATTERNS = [
@@ -46,11 +51,59 @@ const SENSITIVE_DATA_PATTERNS = {
   creditCard: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g
 };
 
+// Helper function to check if word contains bad word with exact boundaries
+function containsBadWord(text, badWord) {
+  // Remove spaces and special characters from the word being checked
+  const normalized = text.toLowerCase().replace(/[\s\-_.]/g, '');
+  const badWordNormalized = badWord.toLowerCase().replace(/[\s\-_.]/g, '');
+  
+  // Check for exact word match with word boundaries
+  const regex = new RegExp(`\\b${badWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+  if (regex.test(text)) return true;
+  
+  // Check for spaced out version (F U C K)
+  const spacedPattern = badWord.split('').join('[\\s\\-_.]?');
+  const spacedRegex = new RegExp(spacedPattern, 'i');
+  if (spacedRegex.test(text)) return true;
+  
+  // Check if normalized text contains normalized bad word as exact match
+  if (normalized === badWordNormalized) return true;
+  
+  // Check for l33t speak and variations
+  const variations = generateVariations(badWord);
+  for (const variant of variations) {
+    const variantRegex = new RegExp(`\\b${variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (variantRegex.test(text)) return true;
+  }
+  
+  return false;
+}
+
+// Generate l33t speak variations
+function generateVariations(word) {
+  const replacements = {
+    'a': ['a', '@', '4'],
+    'e': ['e', '3'],
+    'i': ['i', '1', '!'],
+    'o': ['o', '0'],
+    's': ['s', '5', '$'],
+    'l': ['l', '1'],
+    't': ['t', '7']
+  };
+  
+  return [word]; // For now just return the word, can expand later
+}
+
 // ==================== USER RATE LIMITING ====================
 
 const userMessageHistory = new Map(); // userId -> [timestamps]
 
 function checkRateLimit(userId) {
+  // Admins are exempt from rate limiting
+  if (currentUser && currentUser.role === 'admin' && userId === currentUser.id) {
+    return { limited: false };
+  }
+  
   const now = Date.now();
   const history = userMessageHistory.get(userId) || [];
   
@@ -91,11 +144,19 @@ async function filterMessage(content, userId) {
     confirmMessage: null
   };
   
-  // Check sensitive data (emails, phones, IPs) - CONFIRM instead of block
+  // Admins are exempt from all filters except sensitive data confirmation
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  
+  // Check sensitive data (emails, phones, IPs) - CONFIRM instead of block (applies to everyone)
   const sensitiveData = detectSensitiveData(content);
   if (sensitiveData.length > 0) {
     result.needsConfirm = true;
     result.confirmMessage = `Your message contains ${sensitiveData.join(', ')}. Are you sure this is safe to send?`;
+    return result;
+  }
+  
+  // Skip all other filters for admins
+  if (isAdmin) {
     return result;
   }
   
@@ -114,9 +175,7 @@ async function filterMessage(content, userId) {
   
   // Check slurs - instant delete + warn
   for (const slur of SLURS) {
-    const pattern = slur.replace(/\*/g, '.');
-    const regex = new RegExp(pattern, 'i');
-    if (regex.test(content)) {
+    if (containsBadWord(content, slur)) {
       result.allowed = false;
       result.action = 'delete';
       result.reason = 'slur';
@@ -126,13 +185,21 @@ async function filterMessage(content, userId) {
     }
   }
   
-  // Check bad words - censor with ###
+  // Check bad words - censor with ### (only whole words)
   let censored = content;
-  for (const word of BAD_WORDS) {
-    const pattern = word.replace(/\*/g, '.');
-    const regex = new RegExp(pattern, 'gi');
-    censored = censored.replace(regex, match => '#'.repeat(match.length));
+  const words = content.split(/\b/);
+  
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    for (const badWord of BAD_WORDS) {
+      if (containsBadWord(word, badWord)) {
+        words[i] = '#'.repeat(word.length);
+        break;
+      }
+    }
   }
+  
+  censored = words.join('');
   
   // Load custom bad words from database
   try {
@@ -143,8 +210,7 @@ async function filterMessage(content, userId) {
     
     if (customWords) {
       for (const entry of customWords) {
-        const regex = new RegExp(entry.word, 'gi');
-        if (regex.test(content)) {
+        if (containsBadWord(content, entry.word)) {
           if (entry.action === 'delete') {
             result.allowed = false;
             result.action = 'delete';
@@ -152,7 +218,14 @@ async function filterMessage(content, userId) {
             await flagMessage(userId, content, 'bad_word');
             return result;
           } else if (entry.action === 'censor') {
-            censored = censored.replace(regex, match => '#'.repeat(match.length));
+            // Re-process with custom word
+            const customWords = censored.split(/\b/);
+            for (let i = 0; i < customWords.length; i++) {
+              if (containsBadWord(customWords[i], entry.word)) {
+                customWords[i] = '#'.repeat(customWords[i].length);
+              }
+            }
+            censored = customWords.join('');
           }
         }
       }
