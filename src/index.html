@@ -370,6 +370,9 @@
           <button class="settings-tab" data-tab="leaderboard" onclick="switchSettingsTab('leaderboard')">
             Leaderboard
           </button>
+          <button class="settings-tab" data-tab="filters" onclick="switchSettingsTab('filters')">
+            Personal Filters
+          </button>
           <button class="settings-tab" data-tab="notifications" onclick="switchSettingsTab('notifications')">
             Notifications
           </button>
@@ -444,6 +447,25 @@
             
             <div class="leaderboard-list" id="leaderboardList">
               <!-- Leaderboard entries will be populated here -->
+            </div>
+          </div>
+          
+          <!-- Personal Filters Tab -->
+          <div class="settings-tab-content" id="settingsFilters">
+            <div class="setting-group">
+              <h3>Personal Word Filters</h3>
+              <p class="setting-description" style="margin-bottom: 16px;">
+                Add words you want to hide. Filtered words will appear blurred and you can click to reveal them.
+              </p>
+              
+              <div class="add-filter-section">
+                <input type="text" id="newFilterWord" placeholder="Enter word to filter..." maxlength="50">
+                <button class="btn-primary" onclick="addPersonalFilter()">Add Filter</button>
+              </div>
+              
+              <div id="personalFiltersList" class="personal-filters-list">
+                <!-- Filters will be loaded here -->
+              </div>
             </div>
           </div>
           
@@ -986,5 +1008,6 @@
   <script src="js/badge-settings.js"></script>
   <script src="js/leaderboard.js"></script>
   <script src="js/moderation.js"></script>
+  <script src="js/personal-filters.js"></script>
 </body>
 </html>
