@@ -8,12 +8,25 @@
   margin: 2px 8px;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  animation: slideInRoom 0.3s ease-out backwards;
+}
+
+@keyframes slideInRoom {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .room-item:hover {
   background: var(--bg-hover);
+  transform: translateX(2px);
 }
 
 .room-item.active {
@@ -30,6 +43,18 @@
   height: 24px;
   background: var(--accent);
   border-radius: 0 4px 4px 0;
+  animation: slideInIndicator 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes slideInIndicator {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 3px;
+    opacity: 1;
+  }
 }
 
 /* Room Icon */
@@ -42,6 +67,16 @@
   justify-content: center;
   flex-shrink: 0;
   color: var(--text-secondary);
+  transition: all 0.3s ease;
+}
+
+.room-item:hover .room-item-icon {
+  transform: scale(1.1);
+}
+
+.room-item.active .room-item-icon {
+  color: var(--accent);
+  transform: scale(1.15);
 }
 
 /* Room Content */
@@ -218,4 +253,35 @@
     font-size: 9px;
     padding: 2px 4px;
   }
+}
+
+/* Resizable Sidebar */
+.sidebar-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: ew-resize;
+  z-index: 100;
+  transition: background 0.2s ease;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.active {
+  background: var(--accent);
+}
+
+.sidebar-resize-handle::before {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+}
+
+/* Smooth sidebar width transition */
+.sidebar {
+  transition: width 0.1s ease-out;
 }
