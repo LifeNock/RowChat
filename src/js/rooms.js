@@ -109,10 +109,11 @@ function renderRoomList(rooms) {
     return;
   }
   
-  rooms.forEach(room => {
+  rooms.forEach((room, index) => {
     const roomDiv = document.createElement('div');
     roomDiv.className = 'room-item';
     roomDiv.dataset.roomId = room.id;
+    roomDiv.style.animationDelay = `${index * 0.05}s`;
     
     // Get room icon
     const icon = getRoomIcon(room);
@@ -130,7 +131,7 @@ function renderRoomList(rooms) {
       <div class="room-item-icon">${icon}</div>
       <div class="room-item-content">
         <div class="room-item-header">
-          <span class="room-item-name">${escapeHtml(room.name)}</span>
+          <span class="room-item-name">${escapeHtml(cleanRoomName(room.name))}</span>
           ${privacyIcon}
         </div>
         <div class="room-item-meta">
@@ -155,13 +156,22 @@ function renderRoomList(rooms) {
 }
 
 function getRoomIcon(room) {
+  // Check for emojis in name first
   if (room.name.includes('📢')) return '📢';
   if (room.name.includes('📰')) return '📰';
+  if (room.name.includes('📣')) return '📣';
+  
+  // Then check properties
   if (room.is_announcement) return '📣';
   if (room.privacy === 'private') return '🔒';
   if (room.privacy === 'invite_only') return '🔐';
   if (room.privacy === 'friends_only') return '👥';
   return '#';
+}
+
+function cleanRoomName(name) {
+  // Remove emojis from room name for display
+  return name.replace(/📢|📰|📣|🔒|🔐|👥|#/g, '').trim();
 }
 
 function getPrivacyIcon(room) {
@@ -227,7 +237,7 @@ function selectRoom(room) {
   // Update header
   const icon = getRoomIcon(room);
   const chatTitle = document.getElementById('chatTitle');
-  if (chatTitle) chatTitle.textContent = `${icon} ${room.name}`;
+  if (chatTitle) chatTitle.textContent = `${icon} ${cleanRoomName(room.name)}`;
   
   const chatDescription = document.getElementById('chatDescription');
   if (chatDescription) chatDescription.textContent = room.description || '';
