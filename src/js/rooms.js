@@ -1,4 +1,4 @@
-// ROWCHAT - ROOMS (POLISHED)
+// ROWCHAT - ROOMS (REVAMPED)
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -8,47 +8,88 @@ async function loadRooms() {
   try {
     const supabase = getSupabase();
     
+    // Get all rooms
     const { data: allRooms, error } = await supabase
       .from('rooms')
       .select('*')
-      .order('created_at', { ascending: false});
+      .order('created_at', { ascending: false });
     
     if (error) throw error;
     
+    // Filter out DMs
     const rooms = allRooms.filter(room => room.is_dm !== true);
     
-    // Sort: Announcements first (📢), then Updates (📰), then others
-    rooms.sort((a, b) => {
-      // Both announcement rooms
-      if (a.is_announcement && b.is_announcement) {
-        // Announcements before Updates
-        if (a.name.includes('📢') && b.name.includes('📰')) return -1;
-        if (a.name.includes('📰') && b.name.includes('📢')) return 1;
-        return new Date(a.created_at) - new Date(b.created_at);
-      }
-      // Only a is announcement
-      if (a.is_announcement) return -1;
-      // Only b is announcement
-      if (b.is_announcement) return 1;
-      // Both regular rooms
-      return new Date(b.created_at) - new Date(a.created_at);
-    });
+    // Load members and filter based on privacy
+    const visibleRooms = [];
     
-    // Load members for each room
     for (const room of rooms) {
+      // Load members for this room
       const { data: members } = await supabase
         .from('room_members')
-        .select('user_id')
+        .select('user_id, role')
         .eq('room_id', room.id);
       
       room.members = members ? members.map(m => m.user_id) : [];
-      roomsCache[room.id] = room;
+      room.memberData = members || [];
+      
+      // Check if user can see this room based on privacy
+      const canSee = await canUserSeeRoom(room);
+      
+      if (canSee) {
+        visibleRooms.push(room);
+        roomsCache[room.id] = room;
+      }
     }
     
-    renderRoomList(rooms);
+    // Sort: Announcements first, then by creation date
+    visibleRooms.sort((a, b) => {
+      if (a.is_announcement && !b.is_announcement) return -1;
+      if (!a.is_announcement && b.is_announcement) return 1;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+    
+    renderRoomList(visibleRooms);
   } catch (error) {
     console.error('Error loading rooms:', error);
   }
+}
+
+async function canUserSeeRoom(room) {
+  // Public rooms - everyone can see
+  if (room.privacy === 'public' || !room.privacy) {
+    return true;
+  }
+  
+  // User is member - can see
+  if (room.members.includes(currentUser.id)) {
+    return true;
+  }
+  
+  // Admins can see everything
+  if (currentUser.role === 'admin') {
+    return true;
+  }
+  
+  // Friends only - check if user is friends with room creator
+  if (room.privacy === 'friends_only') {
+    try {
+      const supabase = getSupabase();
+      
+      const { data: friendship } = await supabase
+        .from('friendships')
+        .select('id')
+        .or(`and(user_id.eq.${currentUser.id},friend_id.eq.${room.created_by}),and(user_id.eq.${room.created_by},friend_id.eq.${currentUser.id})`)
+        .eq('status', 'accepted')
+        .single();
+      
+      return !!friendship;
+    } catch {
+      return false;
+    }
+  }
+  
+  // Invite only / Private - must be member
+  return false;
 }
 
 function renderRoomList(rooms) {
@@ -58,7 +99,13 @@ function renderRoomList(rooms) {
   container.innerHTML = '';
   
   if (rooms.length === 0) {
-    container.innerHTML = '<p style="padding: 12px; text-align: center; color: var(--text-tertiary);">No rooms yet. Create one!</p>';
+    container.innerHTML = `
+      <div class="empty-rooms-state">
+        <div class="empty-rooms-icon">#</div>
+        <div class="empty-rooms-text">No rooms yet</div>
+        <div class="empty-rooms-subtext">Create one to get started!</div>
+      </div>
+    `;
     return;
   }
   
@@ -67,40 +114,100 @@ function renderRoomList(rooms) {
     roomDiv.className = 'room-item';
     roomDiv.dataset.roomId = room.id;
     
-    // Special styling for announcements
-    if (room.is_announcement) {
-      roomDiv.style.background = 'linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(88, 101, 242, 0.05) 100%)';
-      roomDiv.style.borderLeft = '3px solid var(--accent)';
-      roomDiv.style.fontWeight = '600';
-    }
+    // Get room icon
+    const icon = getRoomIcon(room);
     
-    // Count online users
-    let onlineCount = 0;
-    if (room.members && Array.isArray(room.members) && typeof onlineUsers !== 'undefined') {
-      room.members.forEach(memberId => {
-        if (onlineUsers[memberId]) {
-          onlineCount++;
-        }
-      });
-    }
+    // Count online members
+    const onlineCount = countOnlineMembers(room);
     
-    const icon = room.name.includes('📢') ? '📢' : room.name.includes('📰') ? '📰' : room.is_announcement ? '🔒' : '#';
-    const lockIcon = room.is_announcement ? '<span class="icon icon-lock" style="font-size: 12px; margin-left: 6px; opacity: 0.6;"></span>' : '';
+    // Check if user is member
+    const isMember = room.members.includes(currentUser.id);
+    
+    // Get privacy indicator
+    const privacyIcon = getPrivacyIcon(room);
     
     roomDiv.innerHTML = `
-      <div class="room-icon">${icon}</div>
-      <div style="flex: 1;">
-        <div class="room-name">${escapeHtml(room.name)}${lockIcon}</div>
-        ${onlineCount > 0 ? `<div style="font-size: 11px; color: #43b581; margin-top: 2px;">${onlineCount} online</div>` : ''}
+      <div class="room-item-icon">${icon}</div>
+      <div class="room-item-content">
+        <div class="room-item-header">
+          <span class="room-item-name">${escapeHtml(room.name)}</span>
+          ${privacyIcon}
+        </div>
+        <div class="room-item-meta">
+          ${onlineCount > 0 ? `<span class="room-online-count">${onlineCount} online</span>` : '<span class="room-offline-text">No one online</span>'}
+        </div>
       </div>
     `;
+    
+    // Special styling for announcement rooms
+    if (room.is_announcement) {
+      roomDiv.classList.add('room-announcement');
+    }
+    
+    // Disabled styling if not member of private room
+    if (!isMember && room.privacy !== 'public') {
+      roomDiv.classList.add('room-locked');
+    }
     
     roomDiv.onclick = () => selectRoom(room);
     container.appendChild(roomDiv);
   });
 }
 
+function getRoomIcon(room) {
+  if (room.name.includes('📢')) return '📢';
+  if (room.name.includes('📰')) return '📰';
+  if (room.is_announcement) return '📣';
+  if (room.privacy === 'private') return '🔒';
+  if (room.privacy === 'invite_only') return '🔐';
+  if (room.privacy === 'friends_only') return '👥';
+  return '#';
+}
+
+function getPrivacyIcon(room) {
+  if (room.is_announcement) {
+    return '<span class="room-privacy-badge announcement">ANNOUNCEMENT</span>';
+  }
+  
+  if (room.privacy === 'private') {
+    return '<span class="room-privacy-badge private">PRIVATE</span>';
+  }
+  
+  if (room.privacy === 'invite_only') {
+    return '<span class="room-privacy-badge invite">INVITE ONLY</span>';
+  }
+  
+  if (room.privacy === 'friends_only') {
+    return '<span class="room-privacy-badge friends">FRIENDS</span>';
+  }
+  
+  return '';
+}
+
+function countOnlineMembers(room) {
+  if (!room.members || !Array.isArray(room.members)) return 0;
+  if (typeof onlineUsers === 'undefined') return 0;
+  
+  let count = 0;
+  room.members.forEach(memberId => {
+    if (onlineUsers[memberId]) {
+      count++;
+    }
+  });
+  
+  return count;
+}
+
 function selectRoom(room) {
+  // Check if user can access this room
+  const isMember = room.members.includes(currentUser.id);
+  const isAdmin = currentUser.role === 'admin';
+  
+  if (!isMember && !isAdmin && room.privacy !== 'public') {
+    showToast('You do not have access to this room', 'error');
+    return;
+  }
+  
   currentRoom = room;
   currentDM = null;
   
@@ -118,7 +225,7 @@ function selectRoom(room) {
   if (selected) selected.classList.add('active');
   
   // Update header
-  const icon = room.name.includes('📢') ? '📢' : room.name.includes('📰') ? '📰' : room.is_announcement ? '🔒' : '#';
+  const icon = getRoomIcon(room);
   const chatTitle = document.getElementById('chatTitle');
   if (chatTitle) chatTitle.textContent = `${icon} ${room.name}`;
   
@@ -126,7 +233,9 @@ function selectRoom(room) {
   if (chatDescription) chatDescription.textContent = room.description || '';
   
   // Update online count for this room
-  updateCurrentRoomOnlineCount();
+  if (typeof updateCurrentRoomOnlineCount === 'function') {
+    updateCurrentRoomOnlineCount();
+  }
   
   // Disable input if announcement room and not admin
   const messageInput = document.getElementById('messageInput');
@@ -190,6 +299,7 @@ async function createRoom() {
         name,
         description,
         is_dm: false,
+        privacy: 'public',
         created_by: currentUser.id
       }])
       .select()
@@ -197,6 +307,7 @@ async function createRoom() {
     
     if (error) throw error;
     
+    // Add creator as owner
     await supabase.from('room_members').insert([{
       room_id: room.id,
       user_id: currentUser.id,
@@ -213,4 +324,4 @@ async function createRoom() {
   }
 }
 
-console.log('Rooms.js loaded (POLISHED)');
+console.log('Rooms.js loaded (REVAMPED)');
