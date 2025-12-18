@@ -182,6 +182,19 @@ async function openProfileView(userId) {
       `;
     }
     
+    // Get friend count
+    const { count: friendCount } = await supabase
+      .from('friendships')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'accepted')
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+    
+    // Update friend count display if element exists
+    const friendCountEl = document.getElementById('profileFriendCount');
+    if (friendCountEl) {
+      friendCountEl.textContent = friendCount || 0;
+    }
+    
     // Check friendship status
     const { data: friendship } = await supabase
       .from('friendships')
