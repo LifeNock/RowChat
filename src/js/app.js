@@ -91,6 +91,11 @@ async function initializeApp() {
     // Refresh online users every 10 seconds
     setInterval(loadOnlineUsers, 10000);
     
+    // Check if user needs to accept TOS/Privacy Policy
+    if (typeof checkAgreements === 'function') {
+      setTimeout(checkAgreements, 1000);
+    }
+    
     console.log('App initialized successfully!');
     showLoading(false);
   } catch (error) {
