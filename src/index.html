@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="css/animations-overhaul.css">
   <link rel="stylesheet" href="css/gif-picker-styles.css">
   <link rel="stylesheet" href="css/calls-styles.css">
+  <link rel="stylesheet" href="css/agreement-modal.css">
 </head>
 <body>
 
@@ -384,6 +385,9 @@
           <button class="settings-tab" data-tab="account" onclick="switchSettingsTab('account')">
             Account
           </button>
+          <button class="settings-tab" data-tab="legal" onclick="switchSettingsTab('legal')">
+            Legal
+          </button>
         </div>
         
         <!-- Tab Content -->
@@ -551,6 +555,55 @@
             <div class="setting-group">
               <h3>Danger Zone</h3>
               <button class="btn-danger" onclick="confirmDeleteAccount()">Delete Account</button>
+            </div>
+          </div>
+          
+          <!-- Legal Tab -->
+          <div class="settings-tab-content" id="settingsLegal">
+            <div class="setting-group">
+              <h3>Terms of Service</h3>
+              <p class="hint">Last updated: December 18, 2025 | Version: 1.0</p>
+              <div class="legal-document">
+                <h4>Key Points</h4>
+                <ul class="legal-list">
+                  <li>You must be at least 13 years old to use RowChat</li>
+                  <li>You're responsible for your account security and all activities</li>
+                  <li>No hate speech, harassment, doxing, explicit content, or spam</li>
+                  <li>We can moderate, suspend, or ban for violations</li>
+                  <li>You retain content ownership but grant us usage license</li>
+                  <li>Service provided "as is" without warranties</li>
+                  <li>We may update terms at any time</li>
+                </ul>
+                <button class="btn-secondary" onclick="viewFullTOS()">📄 View Full Terms of Service</button>
+              </div>
+            </div>
+            
+            <div class="setting-group">
+              <h3>Privacy Policy</h3>
+              <p class="hint">Last updated: December 18, 2025 | Version: 1.0</p>
+              <div class="legal-document">
+                <h4>What We Collect</h4>
+                <ul class="legal-list">
+                  <li>Account info (username, email, password hash)</li>
+                  <li>Messages and content you post</li>
+                  <li>Usage data (IP, device info, timestamps)</li>
+                  <li>Optional data (bio, status, preferences)</li>
+                </ul>
+                <h4>Your Rights</h4>
+                <ul class="legal-list">
+                  <li>Request a copy of your data</li>
+                  <li>Request account and data deletion</li>
+                  <li>Opt out of non-essential collection</li>
+                </ul>
+                <p class="legal-note">🔒 We do NOT sell your data</p>
+                <button class="btn-secondary" onclick="viewFullPrivacy()">📄 View Full Privacy Policy</button>
+              </div>
+            </div>
+            
+            <div class="setting-group">
+              <h3>Contact & Support</h3>
+              <p class="hint">Email: <a href="mailto:witchnock@gmail.com">witchnock@gmail.com</a></p>
+              <p class="hint">Response time: Within 48 hours</p>
             </div>
           </div>
           
@@ -1012,5 +1065,103 @@
   <script src="js/moderation.js"></script>
   <script src="js/personal-filters.js"></script>
   <script src="js/resizable-sidebar.js"></script>
+<!-- Agreement Modal (TOS & Privacy Policy) -->
+<div class="modal-overlay" id="agreementModal">
+  <div class="modal agreement-modal">
+    <div class="modal-header">
+      <h2>📜 Legal Agreements</h2>
+      <p class="agreement-subtitle">Please review and accept to continue using RowChat</p>
+    </div>
+    
+    <div class="modal-body agreement-body">
+      
+      <!-- Terms of Service Section -->
+      <div id="tosSection" class="agreement-section">
+        <div class="agreement-header">
+          <h3>Terms of Service</h3>
+          <button class="btn-secondary btn-sm" onclick="viewFullTOS()">📄 View Full Document</button>
+        </div>
+        
+        <div class="agreement-content">
+          <h4>Key Points:</h4>
+          <ul>
+            <li><strong>Age Requirement:</strong> You must be at least 13 years old</li>
+            <li><strong>Account Security:</strong> You're responsible for your account's security and all activities under it</li>
+            <li><strong>Prohibited Content:</strong> No hate speech, harassment, doxing, explicit content, spam, or illegal activity</li>
+            <li><strong>Moderation:</strong> We reserve the right to remove content, suspend, or ban accounts for violations</li>
+            <li><strong>Your Content:</strong> You retain ownership but grant us a license to display and operate the service</li>
+            <li><strong>No Warranties:</strong> Service provided "as is" without guarantees of uptime or security</li>
+            <li><strong>Liability Limit:</strong> We're not liable for damages beyond $100 or amount paid</li>
+            <li><strong>Changes:</strong> We may update these terms at any time</li>
+          </ul>
+          
+          <p class="agreement-warning">
+            ⚠️ By accepting, you agree to follow all rules and understand violations may result in permanent ban.
+          </p>
+        </div>
+        
+        <label class="agreement-checkbox">
+          <input type="checkbox" id="agreeToTOS" onchange="updateAcceptButton()">
+          <span>I have read and agree to the <strong>Terms of Service</strong></span>
+        </label>
+      </div>
+      
+      <!-- Privacy Policy Section -->
+      <div id="privacySection" class="agreement-section">
+        <div class="agreement-header">
+          <h3>Privacy Policy</h3>
+          <button class="btn-secondary btn-sm" onclick="viewFullPrivacy()">📄 View Full Document</button>
+        </div>
+        
+        <div class="agreement-content">
+          <h4>What We Collect:</h4>
+          <ul>
+            <li><strong>Account Info:</strong> Username, email, password (encrypted)</li>
+            <li><strong>Content:</strong> Messages, files, and media you post</li>
+            <li><strong>Usage Data:</strong> IP address, device info, timestamps</li>
+            <li><strong>Optional:</strong> Bio, status, profile customization</li>
+          </ul>
+          
+          <h4>How We Use Your Data:</h4>
+          <ul>
+            <li>Provide and improve the service</li>
+            <li>Enforce rules and maintain safety</li>
+            <li>Comply with legal obligations</li>
+            <li>Communicate service updates</li>
+          </ul>
+          
+          <h4>Your Rights:</h4>
+          <ul>
+            <li>Request a copy of your data</li>
+            <li>Request account and data deletion</li>
+            <li>Opt out of non-essential collection</li>
+          </ul>
+          
+          <p class="agreement-info">
+            🔒 We do NOT sell your data. Messages are visible to other users as intended by the platform design.
+          </p>
+        </div>
+        
+        <label class="agreement-checkbox">
+          <input type="checkbox" id="agreeToPrivacy" onchange="updateAcceptButton()">
+          <span>I have read and agree to the <strong>Privacy Policy</strong></span>
+        </label>
+      </div>
+      
+    </div>
+    
+    <div class="modal-footer">
+      <p class="agreement-footer-text">
+        Contact: <a href="mailto:witchnock@gmail.com">witchnock@gmail.com</a> | 
+        Effective: December 18, 2025 | Version: 1.0
+      </p>
+      <button class="btn-primary" id="acceptAgreementsBtn" onclick="acceptAgreements()" disabled>
+        ✓ I Accept All Agreements
+      </button>
+    </div>
+  </div>
+</div>
+
+  <script src="js/tos-agreement.js"></script>
 </body>
 </html>
