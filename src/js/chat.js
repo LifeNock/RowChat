@@ -360,6 +360,68 @@ async function sendMessage() {
     return;
   }
   
+  // MODERATION FILTERS
+  if (content && typeof filterMessage === 'function') {
+    const filterResult = await filterMessage(content, currentUser.id);
+    
+    // Show confirmation for sensitive data
+    if (filterResult.needsConfirm) {
+      showConfirmSensitiveModal(filterResult.confirmMessage, () => {
+        actualSendMessage(filterResult.censored);
+      });
+      return;
+    }
+    
+    // Block if not allowed
+    if (!filterResult.allowed) {
+      if (typeof showToast === 'function') {
+        showToast(`Message blocked: ${filterResult.reason.replace(/_/g, ' ')}`, 'warning');
+      }
+      input.value = '';
+      updateCharCounter('');
+      return;
+    }
+    
+    // Use censored version if content was modified
+    if (filterResult.censored !== content) {
+      actualSendMessage(filterResult.censored);
+      return;
+    }
+  }
+  
+  // Check if user is banned
+  if (typeof checkUserBanned === 'function') {
+    const banned = await checkUserBanned(currentUser.id);
+    if (banned) {
+      if (typeof showToast === 'function') {
+        showToast('You are banned from sending messages', 'error');
+      }
+      return;
+    }
+  }
+  
+  // Check if user is timed out
+  const roomId = currentRoom ? currentRoom.id : (currentDM ? currentDM.id : null);
+  if (roomId && typeof checkUserTimedOut === 'function') {
+    const timedOut = await checkUserTimedOut(currentUser.id, roomId);
+    if (timedOut) {
+      const timeLeft = Math.max(0, new Date(timedOut.expires_at) - new Date());
+      if (typeof showToast === 'function' && typeof formatDuration === 'function') {
+        showToast(`You are timed out for ${formatDuration(timeLeft)}`, 'error');
+      }
+      return;
+    }
+  }
+  
+  // Continue with normal send
+  actualSendMessage(content);
+}
+
+async function actualSendMessage(content) {
+  const input = document.getElementById('messageInput');
+  if (!input) return;
+  
+  const pendingFile = window.pendingFile;
   const roomId = currentRoom ? currentRoom.id : currentDM.id;
   
   try {
@@ -448,7 +510,7 @@ async function sendMessage() {
     
     // Clear input and reset state
     input.value = '';
-    input.style.height = 'auto'; // Reset textarea height
+    input.style.height = 'auto';
     updateCharCounter('');
     cancelReply();
     
