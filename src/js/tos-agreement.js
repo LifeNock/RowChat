@@ -177,12 +177,12 @@ async function acceptAgreements() {
 
 // View full TOS
 function viewFullTOS() {
-  window.open('/tos.html', '_blank');
+  window.open('src/tos.html', '_blank');
 }
 
 // View full Privacy Policy
 function viewFullPrivacy() {
-  window.open('/privacy.html', '_blank');
+  window.open('src/privacy.html', '_blank');
 }
 
 console.log('TOS Agreement system loaded');
