@@ -53,45 +53,41 @@ const SENSITIVE_DATA_PATTERNS = {
 
 // Helper function to check if word contains bad word with exact boundaries
 function containsBadWord(text, badWord) {
-  // Remove spaces and special characters from the word being checked
-  const normalized = text.toLowerCase().replace(/[\s\-_.]/g, '');
-  const badWordNormalized = badWord.toLowerCase().replace(/[\s\-_.]/g, '');
+  const textLower = text.toLowerCase();
+  const badWordLower = badWord.toLowerCase();
+  
+  // Direct exact match
+  if (textLower === badWordLower) return true;
   
   // Check for exact word match with word boundaries
-  const regex = new RegExp(`\\b${badWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-  if (regex.test(text)) return true;
+  const exactRegex = new RegExp(`\\b${badWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+  if (exactRegex.test(text)) return true;
   
-  // Check for spaced out version (F U C K)
+  // Check for spaced out version (F U C K, f-u-c-k, etc)
   const spacedPattern = badWord.split('').join('[\\s\\-_.]?');
   const spacedRegex = new RegExp(spacedPattern, 'i');
   if (spacedRegex.test(text)) return true;
   
-  // Check if normalized text contains normalized bad word as exact match
-  if (normalized === badWordNormalized) return true;
+  // Remove all spaces/punctuation and check
+  const normalizedText = textLower.replace(/[\s\-_.]/g, '');
+  const normalizedBad = badWordLower.replace(/[\s\-_.]/g, '');
+  if (normalizedText.includes(normalizedBad)) return true;
   
-  // Check for l33t speak and variations
-  const variations = generateVariations(badWord);
-  for (const variant of variations) {
-    const variantRegex = new RegExp(`\\b${variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-    if (variantRegex.test(text)) return true;
-  }
+  // Check for l33t speak
+  const leetText = textLower
+    .replace(/0/g, 'o')
+    .replace(/1/g, 'i')
+    .replace(/3/g, 'e')
+    .replace(/4/g, 'a')
+    .replace(/5/g, 's')
+    .replace(/7/g, 't')
+    .replace(/@/g, 'a')
+    .replace(/\$/g, 's')
+    .replace(/!/g, 'i');
+  
+  if (leetText.includes(badWordLower)) return true;
   
   return false;
-}
-
-// Generate l33t speak variations
-function generateVariations(word) {
-  const replacements = {
-    'a': ['a', '@', '4'],
-    'e': ['e', '3'],
-    'i': ['i', '1', '!'],
-    'o': ['o', '0'],
-    's': ['s', '5', '$'],
-    'l': ['l', '1'],
-    't': ['t', '7']
-  };
-  
-  return [word]; // For now just return the word, can expand later
 }
 
 // ==================== USER RATE LIMITING ====================
@@ -99,11 +95,6 @@ function generateVariations(word) {
 const userMessageHistory = new Map(); // userId -> [timestamps]
 
 function checkRateLimit(userId) {
-  // Admins are exempt from rate limiting
-  if (currentUser && currentUser.role === 'admin' && userId === currentUser.id) {
-    return { limited: false };
-  }
-  
   const now = Date.now();
   const history = userMessageHistory.get(userId) || [];
   
@@ -144,19 +135,11 @@ async function filterMessage(content, userId) {
     confirmMessage: null
   };
   
-  // Admins are exempt from all filters except sensitive data confirmation
-  const isAdmin = currentUser && currentUser.role === 'admin';
-  
   // Check sensitive data (emails, phones, IPs) - CONFIRM instead of block (applies to everyone)
   const sensitiveData = detectSensitiveData(content);
   if (sensitiveData.length > 0) {
     result.needsConfirm = true;
     result.confirmMessage = `Your message contains ${sensitiveData.join(', ')}. Are you sure this is safe to send?`;
-    return result;
-  }
-  
-  // Skip all other filters for admins
-  if (isAdmin) {
     return result;
   }
   
@@ -173,9 +156,10 @@ async function filterMessage(content, userId) {
     }
   }
   
-  // Check slurs - instant delete + warn
+  // Check slurs - instant delete + warn (check entire message)
+  const contentLower = content.toLowerCase();
   for (const slur of SLURS) {
-    if (containsBadWord(content, slur)) {
+    if (containsBadWord(contentLower, slur)) {
       result.allowed = false;
       result.action = 'delete';
       result.reason = 'slur';
