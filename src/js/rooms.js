@@ -72,10 +72,16 @@ function updateAllRoomOnlineCounts() {
     const metaDiv = roomDiv.querySelector('.room-item-meta');
     
     if (metaDiv) {
-      if (onlineCount > 0) {
-        metaDiv.innerHTML = `<span class="room-online-count">${onlineCount} online</span>`;
-      } else {
-        metaDiv.innerHTML = '<span class="room-offline-text">No one online</span>';
+      const currentText = metaDiv.textContent.trim();
+      const newText = onlineCount > 0 ? `${onlineCount} online` : 'No one online';
+      
+      // Only update if changed to prevent flashing
+      if (!currentText.includes(newText)) {
+        if (onlineCount > 0) {
+          metaDiv.innerHTML = `<span class="room-online-count">${onlineCount} online</span>`;
+        } else {
+          metaDiv.innerHTML = '<span class="room-offline-text">No one online</span>';
+        }
       }
     }
   });
