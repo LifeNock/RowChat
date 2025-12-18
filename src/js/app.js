@@ -67,6 +67,11 @@ async function initializeApp() {
     // Load theme and font preferences
     await loadUserPreferences();
     
+    // Load personal word filters
+    if (typeof loadPersonalFilters === 'function') {
+      await loadPersonalFilters();
+    }
+    
     updateUserUI();
     subscribeToRealtimeUpdates();
     
