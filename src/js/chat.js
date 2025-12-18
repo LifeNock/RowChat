@@ -267,6 +267,16 @@ function addMessageToUI(message) {
   
   container.appendChild(msgDiv);
   
+  // Add right-click context menu for admins
+  if (currentUser.role === 'admin' && message.user_id !== currentUser.id) {
+    msgDiv.addEventListener('contextmenu', (e) => {
+      if (typeof showModerateUserMenu === 'function') {
+        showModerateUserMenu(message.user_id, message.username, e);
+      }
+    });
+    msgDiv.style.cursor = 'context-menu';
+  }
+  
   // Add admin delete button if user is admin
   if (currentUser.role === 'admin' && typeof addAdminDeleteButton === 'function') {
     addAdminDeleteButton(msgDiv, message.id, message.user_id);
