@@ -1143,6 +1143,13 @@ async function removeBadWord(wordId) {
 
 // ==================== USER CONTEXT MENU ACTIONS ====================
 
+let pendingBanUserId = null;
+let pendingBanUsername = null;
+let pendingTimeoutUserId = null;
+let pendingTimeoutUsername = null;
+let pendingWarnUserId = null;
+let pendingWarnUsername = null;
+
 function showModerateUserMenu(userId, username, event) {
   if (currentUser.role !== 'admin') return;
   
@@ -1169,6 +1176,187 @@ function showModerateUserMenu(userId, username, event) {
       document.removeEventListener('click', closeMenu);
     });
   }, 10);
+}
+
+// ==================== BAN MODAL ====================
+
+function openBanModal(userId, username) {
+  pendingBanUserId = userId;
+  pendingBanUsername = username;
+  
+  const modal = document.getElementById('banModal');
+  const usernameField = document.getElementById('banUsername');
+  const reasonField = document.getElementById('banReason');
+  const typeSelect = document.getElementById('banType');
+  const durationGroup = document.getElementById('banDurationGroup');
+  
+  if (usernameField) usernameField.value = username;
+  if (reasonField) reasonField.value = '';
+  if (typeSelect) typeSelect.value = 'permanent';
+  if (durationGroup) durationGroup.style.display = 'none';
+  
+  if (modal) modal.classList.add('active');
+}
+
+function closeBanModal() {
+  const modal = document.getElementById('banModal');
+  if (modal) modal.classList.remove('active');
+  
+  pendingBanUserId = null;
+  pendingBanUsername = null;
+}
+
+function toggleBanDuration() {
+  const type = document.getElementById('banType').value;
+  const durationGroup = document.getElementById('banDurationGroup');
+  
+  if (durationGroup) {
+    durationGroup.style.display = type === 'temporary' ? 'block' : 'none';
+  }
+}
+
+async function executeBan() {
+  if (!pendingBanUserId) return;
+  
+  const reason = document.getElementById('banReason').value.trim();
+  const type = document.getElementById('banType').value;
+  
+  if (!reason) {
+    showToast('Please provide a reason', 'warning');
+    return;
+  }
+  
+  let duration = null;
+  if (type === 'temporary') {
+    const durationSelect = document.getElementById('banDuration');
+    duration = durationSelect ? durationSelect.value : null;
+    
+    if (!duration) {
+      showToast('Please select a duration', 'warning');
+      return;
+    }
+  }
+  
+  try {
+    await banUser(pendingBanUserId, reason, duration);
+    showToast(`User ${pendingBanUsername} has been banned`, 'success');
+    closeBanModal();
+  } catch (error) {
+    console.error('Error executing ban:', error);
+    showToast('Failed to ban user', 'error');
+  }
+}
+
+// ==================== TIMEOUT MODAL ====================
+
+function openTimeoutModal(userId, username) {
+  pendingTimeoutUserId = userId;
+  pendingTimeoutUsername = username;
+  
+  const modal = document.getElementById('timeoutModal');
+  const usernameField = document.getElementById('timeoutUsername');
+  const reasonField = document.getElementById('timeoutReason');
+  const durationField = document.getElementById('timeoutDurationCustom');
+  
+  if (usernameField) usernameField.value = username;
+  if (reasonField) reasonField.value = '';
+  if (durationField) durationField.value = '';
+  
+  if (modal) modal.classList.add('active');
+}
+
+function closeTimeoutModal() {
+  const modal = document.getElementById('timeoutModal');
+  if (modal) modal.classList.remove('active');
+  
+  pendingTimeoutUserId = null;
+  pendingTimeoutUsername = null;
+}
+
+function setTimeoutDuration(minutes) {
+  const durationField = document.getElementById('timeoutDurationCustom');
+  if (durationField) durationField.value = minutes;
+}
+
+async function executeTimeout() {
+  if (!pendingTimeoutUserId) return;
+  
+  const reason = document.getElementById('timeoutReason').value.trim();
+  const durationField = document.getElementById('timeoutDurationCustom');
+  const duration = durationField ? parseInt(durationField.value) : null;
+  
+  if (!reason) {
+    showToast('Please provide a reason', 'warning');
+    return;
+  }
+  
+  if (!duration || duration <= 0) {
+    showToast('Please set a duration', 'warning');
+    return;
+  }
+  
+  const roomId = currentRoom ? currentRoom.id : null;
+  if (!roomId) {
+    showToast('No room selected', 'error');
+    return;
+  }
+  
+  try {
+    await timeoutUser(pendingTimeoutUserId, roomId, reason, duration * 60 * 1000); // Convert to ms
+    showToast(`User ${pendingTimeoutUsername} has been timed out for ${duration} minutes`, 'success');
+    closeTimeoutModal();
+  } catch (error) {
+    console.error('Error executing timeout:', error);
+    showToast('Failed to timeout user', 'error');
+  }
+}
+
+// ==================== WARN MODAL ====================
+
+function openWarnModal(userId, username) {
+  pendingWarnUserId = userId;
+  pendingWarnUsername = username;
+  
+  const modal = document.getElementById('warnModal');
+  const usernameField = document.getElementById('warnUsername');
+  const reasonField = document.getElementById('warnReason');
+  const severitySelect = document.getElementById('warnSeverity');
+  
+  if (usernameField) usernameField.value = username;
+  if (reasonField) reasonField.value = '';
+  if (severitySelect) severitySelect.value = '2';
+  
+  if (modal) modal.classList.add('active');
+}
+
+function closeWarnModal() {
+  const modal = document.getElementById('warnModal');
+  if (modal) modal.classList.remove('active');
+  
+  pendingWarnUserId = null;
+  pendingWarnUsername = null;
+}
+
+async function executeWarn() {
+  if (!pendingWarnUserId) return;
+  
+  const reason = document.getElementById('warnReason').value.trim();
+  const severitySelect = document.getElementById('warnSeverity');
+  const severity = severitySelect ? parseInt(severitySelect.value) : 2;
+  
+  if (!reason) {
+    showToast('Please provide a reason', 'warning');
+    return;
+  }
+  
+  try {
+    await warnUser(pendingWarnUserId, reason, severity);
+    showToast(`User ${pendingWarnUsername} has been warned`, 'success');
+    closeWarnModal();
+  } catch (error) {
+    console.error('Error executing warn:', error);
+    showToast('Failed to warn user', 'error');
+  }
 }
 
 // ==================== FORMAT HELPER FUNCTIONS ====================
