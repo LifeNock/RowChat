@@ -205,6 +205,8 @@ function switchSettingsTab(tabName) {
     loadBadgeSettings();
   } else if (tabName === 'leaderboard' && typeof loadLeaderboard === 'function') {
     loadLeaderboard(currentLeaderboardCategory || 'reputation');
+  } else if (tabName === 'filters' && typeof loadPersonalFilters === 'function') {
+    loadPersonalFilters();
   }
 }
 
