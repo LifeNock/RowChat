@@ -245,7 +245,14 @@ function addMessageToUI(message) {
       <a href="${message.file_url}" target="_blank" style="color: var(--accent);">📎 ${escapeHtml(message.file_name || 'Download File')}</a>
     `;
   } else {
-    content.innerHTML = formatText(message.content);
+    let messageText = formatText(message.content);
+    
+    // Apply personal filters if function exists
+    if (typeof applyPersonalFilters === 'function') {
+      messageText = applyPersonalFilters(messageText);
+    }
+    
+    content.innerHTML = messageText;
   }
   
   const actions = document.createElement('div');
