@@ -20,12 +20,11 @@ async function uploadFile(file) {
     
     if (error) throw error;
     
-    const { data: { publicUrl } } = supabase.storage
+    const { data: urlData } = supabase.storage
       .from('attachments')
       .getPublicUrl(fileName);
     
-    return publicUrl;
-    
+    return urlData.publicUrl;
   } catch (error) {
     console.error('Error uploading file:', error);
     showToast('Failed to upload file', 'error');
@@ -33,263 +32,314 @@ async function uploadFile(file) {
   }
 }
 
-function formatTimestamp(timestamp) {
-  if (!timestamp) return '';
+async function loadMessages(roomId) {
+  console.log('Loading messages for room:', roomId);
   
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
+  const container = document.getElementById('messagesContainer');
+  if (!container) {
+    console.error('messagesContainer not found');
+    return;
+  }
   
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
+  container.innerHTML = '<div style="padding: 20px; text-align: center;">Loading...</div>';
   
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  
-  return date.toLocaleDateString();
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function formatMessageContent(content) {
-  if (!content) return '';
-  
-  let formatted = escapeHtml(content);
-  
-  // Format @mentions
-  formatted = formatted.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
-  
-  // Format **bold**
-  formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  
-  // Format *italic*
-  formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  
-  // Format `code`
-  formatted = formatted.replace(/`(.+?)`/g, '<code>$1</code>');
-  
-  // Format URLs
-  formatted = formatted.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-  
-  return formatted;
-}
-
-function getMentionedUsername(content) {
-  if (!content) return null;
-  
-  const match = content.match(/@(\w+)/);
-  return match ? match[1] : null;
-}
-
-function isUserMentioned(content, username) {
-  if (!content || !username) return false;
-  
-  const mentionedUsername = getMentionedUsername(content);
-  if (!mentionedUsername) return false;
-  
-  const isCurrentUser = currentUser && username.toLowerCase() === currentUser.username.toLowerCase();
-  return isCurrentUser;
-}
-
-async function loadMessages() {
   try {
     const supabase = getSupabase();
-    const container = document.getElementById('messagesContainer');
-    
-    if (!container) return;
-    
-    container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-tertiary);">Loading messages...</div>';
-    
-    const roomId = currentRoom ? currentRoom.id : (currentDM ? currentDM.id : null);
-    if (!roomId) {
-      container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-tertiary);">Select a room or DM to start chatting</div>';
-      return;
-    }
     
     const { data: messages, error } = await supabase
       .from('messages')
       .select('*')
       .eq('room_id', roomId)
-      .order('created_at', { ascending: true })
-      .limit(100);
+      .order('created_at', { ascending: true });
     
-    if (error) throw error;
+    console.log(`Found ${messages ? messages.length : 0} messages`);
+    
+    if (error) {
+      console.error('Error loading messages:', error);
+      container.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Error loading messages</div>';
+      return;
+    }
     
     container.innerHTML = '';
     
     if (!messages || messages.length === 0) {
-      container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-tertiary);">No messages yet. Start the conversation!</div>';
+      container.innerHTML = `
+        <div class="welcome-message">
+          <div class="welcome-icon">💬</div>
+          <h3>No messages yet</h3>
+          <p>Be the first to send a message!</p>
+        </div>
+      `;
       return;
     }
     
-    messages.forEach(message => addMessageToUI(message));
+    messages.forEach(message => {
+      addMessageToUI(message);
+    });
     
-    container.scrollTop = container.scrollHeight;
+    setTimeout(() => {
+      container.scrollTop = container.scrollHeight;
+    }, 100);
+    
+    console.log('Messages loaded successfully');
     
   } catch (error) {
     console.error('Error loading messages:', error);
-    showToast('Failed to load messages', 'error');
+    container.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Failed to load messages</div>';
   }
+}
+
+function processMentions(text) {
+  return text.replace(/@(\w+)/g, (match, username) => {
+    const isCurrentUser = currentUser && username.toLowerCase() === currentUser.username.toLowerCase();
+    const color = isCurrentUser ? 'rgba(250, 166, 26, 0.3)' : 'rgba(88, 101, 242, 0.2)';
+    return `<span style="background: ${color}; padding: 2px 6px; border-radius: 4px; font-weight: 600;">@${username}</span>`;
+  });
+}
+
+function formatText(text) {
+  if (!text) return '';
+  
+  // Escape HTML first
+  text = escapeHtml(text);
+  
+  // Convert line breaks
+  text = text.replace(/\n/g, '<br>');
+  
+  // Bold: **text**
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  
+  // Italic: *text*
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  
+  // Underline: __text__
+  text = text.replace(/__(.+?)__/g, '<u>$1</u>');
+  
+  // Strikethrough: ~~text~~
+  text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
+  
+  // Inline code: `code`
+  text = text.replace(/`(.+?)`/g, '<code>$1</code>');
+  
+  // Process mentions after formatting
+  text = processMentions(text);
+  
+  return text;
 }
 
 function addMessageToUI(message) {
   const container = document.getElementById('messagesContainer');
   if (!container) return;
   
+  if (document.getElementById(`msg-${message.id}`)) {
+    return;
+  }
+  
+  const user = typeof getUser === 'function' ? getUser(message.user_id) : { username: message.username || 'Unknown' };
+  
   const isMentioned = message.content && currentUser && message.content.toLowerCase().includes('@' + currentUser.username.toLowerCase());
   
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'message' + (isMentioned ? ' mentioned' : '');
-  messageDiv.dataset.messageId = message.id;
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message';
+  msgDiv.id = `msg-${message.id}`;
   
-  const user = getUser(message.user_id);
-  const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=random`;
+  if (isMentioned) {
+    msgDiv.style.background = 'rgba(250, 166, 26, 0.1)';
+    msgDiv.style.borderLeft = '3px solid rgba(250, 166, 26, 0.8)';
+    msgDiv.style.paddingLeft = '12px';
+  }
   
-  let replyHTML = '';
-  if (message.reply_to) {
-    const replyToMsg = Array.from(container.querySelectorAll('.message')).find(m => m.dataset.messageId == message.reply_to);
-    if (replyToMsg) {
-      const replyUser = replyToMsg.querySelector('.message-username').textContent;
-      const replyContent = replyToMsg.querySelector('.message-content').textContent.substring(0, 50);
-      replyHTML = `<div class="message-reply" onclick="scrollToMessage(${message.reply_to})">↩️ Replying to ${replyUser}: ${replyContent}...</div>`;
+  const avatar = document.createElement('div');
+  avatar.className = 'message-avatar';
+  avatar.style.cursor = 'pointer';
+  avatar.onclick = () => {
+    if (message.user_id !== currentUser.id) {
+      openProfileView(message.user_id);
+    }
+  };
+  if (user.avatar_url) {
+    avatar.innerHTML = `<img src="${user.avatar_url}">`;
+  } else {
+    avatar.textContent = (message.username || user.username || 'U').charAt(0).toUpperCase();
+  }
+  
+  const contentWrapper = document.createElement('div');
+  contentWrapper.style.flex = '1';
+  contentWrapper.style.position = 'relative';
+  
+  const header = document.createElement('div');
+  header.className = 'message-header';
+  
+  const username = document.createElement('span');
+  username.className = 'message-username';
+  const displayName = message.username || user.username || 'Unknown';
+  
+  let badgesHTML = '';
+  
+  // Check if user wants to hide priority badges
+  const hidePriorityBadges = user.hide_priority_badges || false;
+  
+  if (!hidePriorityBadges) {
+    // Show role badge (ADMIN, ROOM MASTER) + reputation tier badge
+    if (typeof getRoleBadge === 'function') {
+      badgesHTML = getRoleBadge(displayName, user.role);
     }
   }
   
-  messageDiv.innerHTML = `
-    <div class="message-avatar" onclick="openProfileView(${message.user_id})">
-      <img src="${avatarUrl}" alt="${escapeHtml(user.username)}">
-    </div>
-    <div class="message-main">
-      ${replyHTML}
-      <div class="message-header">
-        <span class="message-username" onclick="openProfileView(${message.user_id})">${escapeHtml(user.username)}</span>
-        ${getUserBadges(user)}
-        <span class="message-timestamp">${formatTimestamp(message.created_at)}</span>
-      </div>
-      <div class="message-content">${formatMessageContent(message.content)}</div>
-      ${message.attachment_url ? `<div class="message-attachment"><img src="${message.attachment_url}" alt="attachment"></div>` : ''}
-      ${message.edited_at ? '<span class="message-edited">(edited)</span>' : ''}
-      <div class="message-actions">
-        <button class="icon-btn" onclick="replyToMessage(${message.id}, '${escapeHtml(user.username)}')">↩️</button>
-        ${message.user_id === currentUser.id ? `<button class="icon-btn" onclick="editMessage(${message.id}, '${escapeHtml(message.content)}')">✏️</button>` : ''}
-        ${message.user_id === currentUser.id || currentUser.role === 'admin' ? `<button class="icon-btn" onclick="deleteMessage(${message.id})">🗑️</button>` : ''}
-      </div>
-    </div>
+  // Always show equipped badges
+  if (user.equipped_badges && Array.isArray(user.equipped_badges)) {
+    user.equipped_badges.forEach(badgeType => {
+      if (typeof ALL_BADGES !== 'undefined' && ALL_BADGES[badgeType]) {
+        const badge = ALL_BADGES[badgeType];
+        badgesHTML += `<span class="user-badge ${badge.color}">${badge.name}</span>`;
+      }
+    });
+  }
+  
+  username.innerHTML = displayName + badgesHTML;
+  username.style.cursor = 'pointer';
+  username.onclick = () => {
+    if (message.user_id !== currentUser.id) {
+      openProfileView(message.user_id);
+    }
+  };
+  
+  const timestamp = document.createElement('span');
+  timestamp.className = 'message-timestamp';
+  timestamp.textContent = typeof formatTime === 'function' ? formatTime(message.created_at) : new Date(message.created_at).toLocaleTimeString();
+  
+  header.appendChild(username);
+  header.appendChild(timestamp);
+  
+  if (message.reply_to) {
+    const replyPreview = document.createElement('div');
+    replyPreview.style.cssText = 'background: rgba(0,0,0,0.2); border-left: 3px solid var(--accent); padding: 6px 10px; margin: 6px 0; border-radius: 4px; font-size: 12px; cursor: pointer;';
+    replyPreview.innerHTML = `<strong>Replying to:</strong> ${escapeHtml((message.reply_text || '').substring(0, 50))}...`;
+    replyPreview.onclick = () => scrollToMessage(message.reply_to);
+    contentWrapper.appendChild(replyPreview);
+  }
+  
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  
+  if (message.message_type === 'image' && message.file_url) {
+    content.innerHTML = `
+      ${formatText(message.content)}<br>
+      <img src="${message.file_url}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
+    `;
+  } else if (message.message_type === 'gif' && message.file_url) {
+    content.innerHTML = `
+      ${formatText(message.content)}<br>
+      <img src="${message.file_url}" data-gif="true" style="max-width: 300px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
+    `;
+  } else if (message.message_type === 'video' && message.file_url) {
+    content.innerHTML = `
+      ${formatText(message.content)}<br>
+      <video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;">
+        <source src="${message.file_url}">
+      </video>
+    `;
+  } else if (message.message_type === 'file' && message.file_url) {
+    content.innerHTML = `
+      ${formatText(message.content)}<br>
+      <a href="${message.file_url}" target="_blank" style="color: var(--accent);">📎 ${escapeHtml(message.file_name || 'Download File')}</a>
+    `;
+  } else {
+    let messageText = formatText(message.content);
+    
+    // Apply personal filters if function exists
+    if (typeof applyPersonalFilters === 'function') {
+      messageText = applyPersonalFilters(messageText);
+    }
+    
+    content.innerHTML = messageText;
+  }
+  
+  const actions = document.createElement('div');
+  actions.style.cssText = 'position: absolute; top: 0; right: 0; display: none; gap: 4px; background: var(--bg-secondary); padding: 4px; border-radius: 4px;';
+  actions.innerHTML = `
+    <button onclick="setReply(${message.id}, '${escapeHtml(message.username)}', '${escapeHtml(message.content.substring(0, 50))}')" style="background: none; border: none; cursor: pointer; font-size: 16px;">↩️</button>
+    ${message.user_id === (currentUser ? currentUser.id : 0) ? `<button onclick="editMessage(${message.id}, '${escapeHtml(message.content)}')" style="background: none; border: none; cursor: pointer; font-size: 16px;">✏️</button>` : ''}
   `;
   
-  container.appendChild(messageDiv);
-}
-
-function getUserBadges(user) {
-  if (!user) return '';
+  msgDiv.addEventListener('mouseenter', () => actions.style.display = 'flex');
+  msgDiv.addEventListener('mouseleave', () => actions.style.display = 'none');
   
-  let badges = '';
+  contentWrapper.appendChild(header);
+  contentWrapper.appendChild(content);
+  contentWrapper.appendChild(actions);
   
-  if (user.role === 'admin') {
-    badges += '<span class="user-badge admin-badge">👑 Admin</span>';
+  msgDiv.appendChild(avatar);
+  msgDiv.appendChild(contentWrapper);
+  
+  container.appendChild(msgDiv);
+  
+  // Add right-click context menu for admins
+  if (currentUser.role === 'admin' && message.user_id !== currentUser.id) {
+    msgDiv.addEventListener('contextmenu', (e) => {
+      if (typeof showModerateUserMenu === 'function') {
+        showModerateUserMenu(message.user_id, message.username, e);
+      }
+    });
+    msgDiv.style.cursor = 'context-menu';
   }
   
-  return badges;
-}
-
-function scrollToMessage(messageId) {
-  const messageDiv = document.querySelector(`.message[data-message-id="${messageId}"]`);
-  if (messageDiv) {
-    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    messageDiv.style.background = 'var(--accent-bg)';
-    setTimeout(() => {
-      messageDiv.style.background = '';
-    }, 2000);
+  // Add admin delete button if user is admin
+  if (currentUser.role === 'admin' && typeof addAdminDeleteButton === 'function') {
+    addAdminDeleteButton(msgDiv, message.id, message.user_id);
   }
 }
 
-function replyToMessage(messageId, username) {
-  currentReplyTo = messageId;
-  
-  const input = document.getElementById('messageInput');
-  if (input) {
-    input.focus();
-  }
+function setReply(messageId, username, text) {
+  currentReplyTo = { id: messageId, username, text };
   
   const replyBar = document.getElementById('replyBar');
-  if (replyBar) {
+  const replyToUser = document.getElementById('replyToUser');
+  const replyToText = document.getElementById('replyToText');
+  
+  if (replyBar && replyToUser && replyToText) {
+    replyToUser.textContent = username;
+    replyToText.textContent = text;
     replyBar.style.display = 'flex';
-    replyBar.innerHTML = `
-      <span>Replying to ${username}</span>
-      <button onclick="cancelReply()">✕</button>
-    `;
   }
+  
+  document.getElementById('messageInput')?.focus();
 }
 
 function cancelReply() {
   currentReplyTo = null;
-  
   const replyBar = document.getElementById('replyBar');
-  if (replyBar) {
-    replyBar.style.display = 'none';
-  }
+  if (replyBar) replyBar.style.display = 'none';
 }
 
 function editMessage(messageId, content) {
-  currentEditMessage = messageId;
+  currentEditMessage = { id: messageId, content };
   
   const input = document.getElementById('messageInput');
-  if (input) {
-    input.value = content;
-    input.focus();
-  }
+  const editBar = document.getElementById('editBar');
   
-  const sendBtn = document.getElementById('sendBtn');
-  if (sendBtn) {
-    sendBtn.textContent = '✓';
+  if (input && editBar) {
+    input.value = content;
+    editBar.style.display = 'flex';
+    input.focus();
   }
 }
 
 function cancelEdit() {
   currentEditMessage = null;
-  
   const input = document.getElementById('messageInput');
-  if (input) {
-    input.value = '';
-  }
+  const editBar = document.getElementById('editBar');
   
-  const sendBtn = document.getElementById('sendBtn');
-  if (sendBtn) {
-    sendBtn.innerHTML = '➤';
-  }
+  if (input) input.value = '';
+  if (editBar) editBar.style.display = 'none';
 }
 
-async function deleteMessage(messageId) {
-  if (!confirm('Delete this message?')) return;
-  
-  try {
-    const supabase = getSupabase();
-    
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('id', messageId);
-    
-    if (error) throw error;
-    
-    const messageDiv = document.querySelector(`.message[data-message-id="${messageId}"]`);
-    if (messageDiv) {
-      messageDiv.remove();
-    }
-    
-    showToast('Message deleted', 'success');
-    
-  } catch (error) {
-    console.error('Error deleting message:', error);
-    showToast('Failed to delete message', 'error');
+function scrollToMessage(messageId) {
+  const msgEl = document.getElementById(`msg-${messageId}`);
+  if (msgEl) {
+    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    msgEl.style.background = 'rgba(88, 101, 242, 0.3)';
+    setTimeout(() => msgEl.style.background = '', 2000);
   }
 }
 
@@ -329,46 +379,85 @@ async function sendMessage() {
       return;
     }
     
-    // Check if banned
-    if (filterResult.banned) {
-      showToast(filterResult.bannedReason || 'You are banned', 'error');
+    // Block if not allowed
+    if (!filterResult.allowed) {
+      if (typeof showToast === 'function') {
+        showToast(`Message blocked: ${filterResult.reason.replace(/_/g, ' ')}`, 'warning');
+      }
+      input.value = '';
+      updateCharCounter('');
       return;
     }
     
-    // Check if timed out
-    if (filterResult.timedOut) {
-      showToast('You are timed out in this room', 'error');
+    // Use censored version if content was modified
+    if (filterResult.censored !== content) {
+      actualSendMessage(filterResult.censored);
       return;
     }
-    
-    // Message was blocked
-    if (filterResult.blocked) {
-      // Already showed toast in filterMessage
-      return;
-    }
-    
-    // Use censored content
-    actualSendMessage(filterResult.censored);
-  } else {
-    actualSendMessage(content);
   }
+  
+  // Check if user is banned
+  if (typeof checkUserBanned === 'function') {
+    const banned = await checkUserBanned(currentUser.id);
+    if (banned) {
+      if (typeof showToast === 'function') {
+        showToast('You are banned from sending messages', 'error');
+      }
+      return;
+    }
+  }
+  
+  // Check if user is timed out
+  const roomId = currentRoom ? currentRoom.id : (currentDM ? currentDM.id : null);
+  if (roomId && typeof checkUserTimedOut === 'function') {
+    const timedOut = await checkUserTimedOut(currentUser.id, roomId);
+    if (timedOut) {
+      const timeLeft = Math.max(0, new Date(timedOut.expires_at) - new Date());
+      if (typeof showToast === 'function' && typeof formatDuration === 'function') {
+        showToast(`You are timed out for ${formatDuration(timeLeft)}`, 'error');
+      }
+      return;
+    }
+  }
+  
+  // Continue with normal send
+  actualSendMessage(content);
 }
 
 async function actualSendMessage(content) {
   const input = document.getElementById('messageInput');
+  if (!input) return;
+  
   const pendingFile = window.pendingFile;
+  const roomId = currentRoom ? currentRoom.id : currentDM.id;
   
   try {
     const supabase = getSupabase();
     
-    let attachmentUrl = null;
+    let fileUrl = null;
+    let fileName = null;
+    let messageType = 'text';
+    
+    // Handle file upload
     if (pendingFile) {
-      attachmentUrl = await uploadFile(pendingFile);
-      if (!attachmentUrl) return;
+      fileUrl = await uploadFile(pendingFile);
+      if (!fileUrl) return;
+      
+      fileName = pendingFile.name;
+      
+      if (pendingFile.type.startsWith('image/')) {
+        messageType = 'image';
+      } else if (pendingFile.type.startsWith('video/')) {
+        messageType = 'video';
+      } else {
+        messageType = 'file';
+      }
+      
+      window.pendingFile = null;
+      cancelFile();
     }
     
-    const roomId = currentRoom ? currentRoom.id : (currentDM ? currentDM.id : null);
-    
+    // Handle editing
     if (currentEditMessage) {
       const { error } = await supabase
         .from('messages')
@@ -376,100 +465,193 @@ async function actualSendMessage(content) {
           content: content,
           edited_at: new Date().toISOString()
         })
-        .eq('id', currentEditMessage);
+        .eq('id', currentEditMessage.id);
       
       if (error) throw error;
       
-      const messageDiv = document.querySelector(`.message[data-message-id="${currentEditMessage}"]`);
-      if (messageDiv) {
-        const contentDiv = messageDiv.querySelector('.message-content');
-        if (contentDiv) {
-          contentDiv.innerHTML = formatMessageContent(content);
-        }
-        
-        const editedSpan = messageDiv.querySelector('.message-edited');
-        if (!editedSpan) {
-          const mainDiv = messageDiv.querySelector('.message-main');
-          if (mainDiv) {
-            const span = document.createElement('span');
-            span.className = 'message-edited';
-            span.textContent = '(edited)';
-            mainDiv.appendChild(span);
-          }
+      const msgEl = document.getElementById(`msg-${currentEditMessage.id}`);
+      if (msgEl) {
+        const contentEl = msgEl.querySelector('.message-content');
+        if (contentEl) {
+          contentEl.innerHTML = formatText(content);
         }
       }
       
+      input.value = '';
       cancelEdit();
-      
-    } else {
-      const messageData = {
-        room_id: roomId,
-        user_id: currentUser.id,
-        content: content
-      };
-      
-      if (attachmentUrl) {
-        messageData.attachment_url = attachmentUrl;
-      }
-      
-      if (currentReplyTo) {
-        messageData.reply_to = currentReplyTo;
-      }
-      
-      const { error } = await supabase
-        .from('messages')
-        .insert([messageData]);
-      
-      if (error) throw error;
-      
-      cancelReply();
-      
-      // Track XP if gamification is loaded
-      if (typeof trackMessageSent === 'function') {
-        await trackMessageSent();
-      }
+      updateCharCounter('');
+      return;
     }
     
+    // Build message data
+    const messageData = {
+      room_id: roomId,
+      user_id: currentUser.id,
+      username: currentUser.username,
+      content: content || fileName || 'File',
+      message_type: messageType,
+      file_url: fileUrl,
+      file_name: fileName
+    };
+    
+    // Add reply data if replying
+    if (currentReplyTo) {
+      messageData.reply_to = currentReplyTo.id;
+      messageData.reply_text = currentReplyTo.text;
+    }
+    
+    // Send message
+    const { data, error } = await supabase
+      .from('messages')
+      .insert([messageData])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error sending message:', error);
+      if (typeof showToast === 'function') {
+        showToast('Failed to send message', 'error');
+      }
+      return;
+    }
+    
+    // Clear input and reset state
     input.value = '';
-    window.pendingFile = null;
+    input.style.height = 'auto';
+    updateCharCounter('');
+    cancelReply();
     
-    const preview = document.getElementById('filePreview');
-    if (preview) {
-      preview.innerHTML = '';
-      preview.style.display = 'none';
+    // Add to UI
+    addMessageToUI(data);
+    
+    // Track reputation for message
+    if (typeof trackMessageSent === 'function') {
+      trackMessageSent(currentUser.id);
     }
     
-    const charCount = document.getElementById('charCount');
-    if (charCount) {
-      charCount.textContent = '0/2000';
+    // Scroll to bottom
+    const container = document.getElementById('messagesContainer');
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
     
   } catch (error) {
     console.error('Error sending message:', error);
-    showToast('Failed to send message', 'error');
+    if (typeof showToast === 'function') {
+      showToast('Failed to send message', 'error');
+    }
   }
 }
 
-function showConfirmSensitiveModal(message, onConfirm) {
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay active';
-  modal.innerHTML = `
-    <div class="modal">
-      <div class="modal-header">
-        <h2>⚠️ Sensitive Data Detected</h2>
-      </div>
-      <div class="modal-body">
-        <p>${message}</p>
-        <p><strong>Are you sure you want to send this?</strong></p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-        <button class="btn-danger" onclick="this.closest('.modal-overlay').remove(); (${onConfirm.toString()})()">Send Anyway</button>
-      </div>
-    </div>
-  `;
+// Update character counter
+function updateCharCounter(text) {
+  const counter = document.getElementById('charCount');
+  if (!counter) return;
   
-  document.body.appendChild(modal);
+  const length = text.length;
+  
+  if (length > 1800) {
+    counter.textContent = `${length}/2000`;
+    counter.style.color = '#f04747';
+  } else if (length > 0) {
+    counter.textContent = `${length}/2000`;
+    counter.style.color = 'var(--text-tertiary)';
+  } else {
+    counter.textContent = '';
+  }
 }
 
-console.log('Chat.js loaded (REVERTED - NO HARDWARE BANS)');
+const messageInput = document.getElementById('messageInput');
+if (messageInput) {
+  messageInput.addEventListener('keydown', (e) => {
+    // Enter without Shift = Send message
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+    // Shift+Enter = New line (default textarea behavior)
+  });
+  
+  messageInput.addEventListener('input', (e) => {
+    updateCharCounter(e.target.value);
+    
+    // Auto-resize textarea
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+  });
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now - date;
+  
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+function openImageModal(url) {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('modalImage');
+  if (modal && img) {
+    img.src = url;
+    modal.classList.add('active');
+  }
+}
+
+function closeImageModal() {
+  const modal = document.getElementById('imageModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+const fileInput = document.getElementById('fileInput');
+if (fileInput) {
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    console.log('File selected:', file.name);
+    
+    const preview = document.getElementById('filePreview');
+    const previewBar = document.getElementById('filePreviewBar');
+    
+    if (preview && previewBar) {
+      preview.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      previewBar.style.display = 'flex';
+    }
+    
+    window.pendingFile = file;
+  });
+}
+
+function cancelFile() {
+  window.pendingFile = null;
+  const previewBar = document.getElementById('filePreviewBar');
+  if (previewBar) {
+    previewBar.style.display = 'none';
+  }
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) {
+    fileInput.value = '';
+  }
+}
+
+console.log('Chat.js loaded (with reply, mentions, edit)');
