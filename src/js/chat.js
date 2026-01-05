@@ -1,584 +1,533 @@
-// ROWCHAT - CHAT WITH REPLY, MENTIONS, EDIT
+// ROWCHAT - MAIN APPLICATION (FIXED)
 
-let currentReplyTo = null;
-let currentEditMessage = null;
+let currentUser = null;
+let currentRoom = null;
+let currentDM = null;
+let usersCache = {};
+let roomsCache = {};
+let onlineUsers = {};
+let unreadRooms = {};
 
 function getSupabase() {
   return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-async function uploadFile(file) {
+// Initialize App
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, checking for existing session...');
+  
+  const storedUser = localStorage.getItem('rowchat-user');
+  if (storedUser) {
+    try {
+      currentUser = JSON.parse(storedUser);
+      console.log('Found stored user:', currentUser.username);
+      initializeApp();
+    } catch (error) {
+      console.error('Error parsing stored user:', error);
+      localStorage.removeItem('rowchat-user');
+    }
+  } else {
+    console.log('No stored user found, showing auth screen');
+    showLoading(false);
+  }
+});
+
+function showLoading(show) {
+  const loadingScreen = document.getElementById('loadingScreen');
+  const authScreen = document.getElementById('authScreen');
+  const appContainer = document.getElementById('appContainer');
+  
+  if (show) {
+    loadingScreen.style.display = 'flex';
+    authScreen.style.display = 'none';
+    appContainer.style.display = 'none';
+  } else {
+    loadingScreen.style.display = 'none';
+    if (currentUser) {
+      authScreen.style.display = 'none';
+      appContainer.style.display = 'flex';
+    } else {
+      authScreen.style.display = 'flex';
+      appContainer.style.display = 'none';
+    }
+  }
+}
+
+async function initializeApp() {
+  console.log('Initializing app for user:', currentUser.username);
+  showLoading(true);
+  
+  try {
+    await loadUsers();
+    await loadRooms();
+    await loadFriends();
+    await updatePresence();
+    await loadOnlineUsers();
+    
+    // Load theme and font preferences
+    await loadUserPreferences();
+    
+    // Load personal word filters
+    if (typeof loadPersonalFilters === 'function') {
+      await loadPersonalFilters();
+    }
+    
+    updateUserUI();
+    subscribeToRealtimeUpdates();
+    
+    // Show admin DMs section if user is admin
+    if (currentUser.role === 'admin') {
+      const adminSection = document.getElementById('adminDmsSection');
+      if (adminSection) adminSection.style.display = 'block';
+      
+      // Show admin panel link in user menu
+      const adminPanelLink = document.getElementById('adminPanelLink');
+      if (adminPanelLink) adminPanelLink.style.display = 'flex';
+    }
+    
+    // Update presence every 30 seconds
+    setInterval(updatePresence, 30000);
+    
+    // Refresh online users every 10 seconds
+    setInterval(loadOnlineUsers, 10000);
+    
+    // Check if user needs to accept TOS/Privacy Policy
+    if (typeof checkAgreements === 'function') {
+      setTimeout(checkAgreements, 1000);
+    }
+    
+    console.log('App initialized successfully!');
+    showLoading(false);
+  } catch (error) {
+    console.error('Error initializing app:', error);
+    showLoading(false);
+    showToast('Failed to initialize app', 'error');
+  }
+}
+
+// Load user preferences (theme and font)
+async function loadUserPreferences() {
   try {
     const supabase = getSupabase();
     
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
-    
-    const { data, error } = await supabase.storage
-      .from('attachments')
-      .upload(fileName, file);
+    const { data, error } = await supabase
+      .from('users')
+      .select('theme, font_family, role, status_message')
+      .eq('id', currentUser.id)
+      .single();
     
     if (error) throw error;
     
-    const { data: urlData } = supabase.storage
-      .from('attachments')
-      .getPublicUrl(fileName);
+    // Update role
+    if (data.role) {
+      currentUser.role = data.role;
+    }
     
-    return urlData.publicUrl;
+    // Update status
+    if (data.status_message) {
+      currentUser.status_message = data.status_message;
+    }
+    
+    // Apply theme
+    if (data.theme && data.theme.preset) {
+      document.body.setAttribute('data-theme', data.theme.preset);
+      currentUser.theme = data.theme;
+    }
+    
+    // Apply font
+    if (data.font_family) {
+      const font = FONTS.find(f => f.name === data.font_family);
+      if (font) {
+        document.documentElement.style.setProperty('--font-family', font.value);
+        currentUser.font_family = data.font_family;
+      }
+    }
+    
+    // Update localStorage
+    localStorage.setItem('rowchat-user', JSON.stringify(currentUser));
+    
+    console.log('User role:', currentUser.role);
+    
   } catch (error) {
-    console.error('Error uploading file:', error);
-    showToast('Failed to upload file', 'error');
-    return null;
+    console.error('Error loading user preferences:', error);
   }
 }
 
-async function loadMessages(roomId) {
-  console.log('Loading messages for room:', roomId);
-  
-  const container = document.getElementById('messagesContainer');
-  if (!container) {
-    console.error('messagesContainer not found');
-    return;
-  }
-  
-  container.innerHTML = '<div style="padding: 20px; text-align: center;">Loading...</div>';
-  
+async function loadOnlineUsers() {
   try {
     const supabase = getSupabase();
     
-    const { data: messages, error } = await supabase
-      .from('messages')
+    // Get users online in last 60 seconds
+    const cutoff = new Date(Date.now() - 60000).toISOString();
+    
+    const { data, error } = await supabase
+      .from('presence')
       .select('*')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: true });
+      .eq('is_online', true)
+      .gte('last_seen', cutoff);
     
-    console.log(`Found ${messages ? messages.length : 0} messages`);
+    if (error) throw error;
     
-    if (error) {
-      console.error('Error loading messages:', error);
-      container.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Error loading messages</div>';
-      return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (!messages || messages.length === 0) {
-      container.innerHTML = `
-        <div class="welcome-message">
-          <div class="welcome-icon">💬</div>
-          <h3>No messages yet</h3>
-          <p>Be the first to send a message!</p>
-        </div>
-      `;
-      return;
-    }
-    
-    messages.forEach(message => {
-      addMessageToUI(message);
+    onlineUsers = {};
+    data.forEach(presence => {
+      onlineUsers[presence.user_id] = presence;
     });
     
-    setTimeout(() => {
-      container.scrollTop = container.scrollHeight;
-    }, 100);
+    console.log('Online users:', Object.keys(onlineUsers).length);
     
-    console.log('Messages loaded successfully');
+    // Update online count display
+    updateOnlineCountDisplay();
+    
+    // Update room online counts
+    if (currentRoom) {
+      updateCurrentRoomOnlineCount();
+    }
     
   } catch (error) {
-    console.error('Error loading messages:', error);
-    container.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Failed to load messages</div>';
+    console.error('Error loading online users:', error);
   }
 }
 
-function processMentions(text) {
-  return text.replace(/@(\w+)/g, (match, username) => {
-    const isCurrentUser = currentUser && username.toLowerCase() === currentUser.username.toLowerCase();
-    const color = isCurrentUser ? 'rgba(250, 166, 26, 0.3)' : 'rgba(88, 101, 242, 0.2)';
-    return `<span style="background: ${color}; padding: 2px 6px; border-radius: 4px; font-weight: 600;">@${username}</span>`;
-  });
+function updateOnlineCountDisplay() {
+  const onlineCountEl = document.getElementById('onlineCount');
+  if (onlineCountEl) {
+    const count = Object.keys(onlineUsers).length;
+    onlineCountEl.textContent = `${count} online`;
+  }
+  
+  // Update dropdown list if it's open
+  const dropdown = document.getElementById('onlineUsersDropdown');
+  if (dropdown && dropdown.classList.contains('active')) {
+    renderOnlineUsersList();
+  }
 }
 
-function formatText(text) {
-  if (!text) return '';
+function toggleOnlineUsersDropdown() {
+  const dropdown = document.getElementById('onlineUsersDropdown');
+  if (!dropdown) return;
   
-  // Escape HTML first
-  text = escapeHtml(text);
+  dropdown.classList.toggle('active');
   
-  // Convert line breaks
-  text = text.replace(/\n/g, '<br>');
-  
-  // Bold: **text**
-  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  
-  // Italic: *text*
-  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  
-  // Underline: __text__
-  text = text.replace(/__(.+?)__/g, '<u>$1</u>');
-  
-  // Strikethrough: ~~text~~
-  text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
-  
-  // Inline code: `code`
-  text = text.replace(/`(.+?)`/g, '<code>$1</code>');
-  
-  // Process mentions after formatting
-  text = processMentions(text);
-  
-  return text;
+  if (dropdown.classList.contains('active')) {
+    renderOnlineUsersList();
+  }
 }
 
-function addMessageToUI(message) {
-  const container = document.getElementById('messagesContainer');
-  if (!container) return;
+function renderOnlineUsersList() {
+  const listEl = document.getElementById('onlineUsersList');
+  if (!listEl) return;
   
-  if (document.getElementById(`msg-${message.id}`)) {
+  listEl.innerHTML = '';
+  
+  const onlineUserIds = Object.keys(onlineUsers);
+  
+  if (onlineUserIds.length === 0) {
+    listEl.innerHTML = '<div class="online-users-empty">No users online</div>';
     return;
   }
   
-  const user = typeof getUser === 'function' ? getUser(message.user_id) : { username: message.username || 'Unknown' };
+  // Sort by username
+  const sortedUsers = onlineUserIds
+    .map(id => getUser(parseInt(id)))
+    .filter(user => user && user.username !== 'Unknown')
+    .sort((a, b) => a.username.localeCompare(b.username));
   
-  const isMentioned = message.content && currentUser && message.content.toLowerCase().includes('@' + currentUser.username.toLowerCase());
-  
-  const msgDiv = document.createElement('div');
-  msgDiv.className = 'message';
-  msgDiv.id = `msg-${message.id}`;
-  
-  if (isMentioned) {
-    msgDiv.style.background = 'rgba(250, 166, 26, 0.1)';
-    msgDiv.style.borderLeft = '3px solid rgba(250, 166, 26, 0.8)';
-    msgDiv.style.paddingLeft = '12px';
-  }
-  
-  const avatar = document.createElement('div');
-  avatar.className = 'message-avatar';
-  avatar.style.cursor = 'pointer';
-  avatar.onclick = () => {
-    if (message.user_id !== currentUser.id) {
-      openProfileView(message.user_id);
+  sortedUsers.forEach(user => {
+    const userDiv = document.createElement('div');
+    userDiv.className = 'online-user-item';
+    
+    const avatar = document.createElement('div');
+    avatar.className = 'online-user-avatar';
+    if (user.avatar_url) {
+      avatar.innerHTML = `<img src="${user.avatar_url}" alt="${user.username}">`;
+    } else {
+      avatar.textContent = user.username.charAt(0).toUpperCase();
     }
-  };
-  if (user.avatar_url) {
-    avatar.innerHTML = `<img src="${user.avatar_url}">`;
-  } else {
-    avatar.textContent = (message.username || user.username || 'U').charAt(0).toUpperCase();
-  }
-  
-  const contentWrapper = document.createElement('div');
-  contentWrapper.style.flex = '1';
-  contentWrapper.style.position = 'relative';
-  
-  const header = document.createElement('div');
-  header.className = 'message-header';
-  
-  const username = document.createElement('span');
-  username.className = 'message-username';
-  const displayName = message.username || user.username || 'Unknown';
-  
-  let badgesHTML = '';
-  
-  // Check if user wants to hide priority badges
-  const hidePriorityBadges = user.hide_priority_badges || false;
-  
-  if (!hidePriorityBadges) {
-    // Show role badge (ADMIN, ROOM MASTER) + reputation tier badge
-    if (typeof getRoleBadge === 'function') {
-      badgesHTML = getRoleBadge(displayName, user.role);
-    }
-  }
-  
-  // Always show equipped badges
-  if (user.equipped_badges && Array.isArray(user.equipped_badges)) {
-    user.equipped_badges.forEach(badgeType => {
-      if (typeof ALL_BADGES !== 'undefined' && ALL_BADGES[badgeType]) {
-        const badge = ALL_BADGES[badgeType];
-        badgesHTML += `<span class="user-badge ${badge.color}">${badge.name}</span>`;
+    
+    const info = document.createElement('div');
+    info.className = 'online-user-info';
+    
+    const name = document.createElement('div');
+    name.className = 'online-user-name';
+    name.textContent = user.username;
+    
+    const status = document.createElement('div');
+    status.className = 'online-user-status';
+    status.textContent = user.status_message || 'Online';
+    
+    info.appendChild(name);
+    info.appendChild(status);
+    
+    userDiv.appendChild(avatar);
+    userDiv.appendChild(info);
+    
+    // Click to view profile
+    userDiv.onclick = (e) => {
+      e.stopPropagation();
+      if (user.id !== currentUser.id && typeof openProfileView === 'function') {
+        openProfileView(user.id);
+        document.getElementById('onlineUsersDropdown').classList.remove('active');
       }
-    });
-  }
-  
-  username.innerHTML = displayName + badgesHTML;
-  username.style.cursor = 'pointer';
-  username.onclick = () => {
-    if (message.user_id !== currentUser.id) {
-      openProfileView(message.user_id);
-    }
-  };
-  
-  const timestamp = document.createElement('span');
-  timestamp.className = 'message-timestamp';
-  timestamp.textContent = typeof formatTime === 'function' ? formatTime(message.created_at) : new Date(message.created_at).toLocaleTimeString();
-  
-  header.appendChild(username);
-  header.appendChild(timestamp);
-  
-  if (message.reply_to) {
-    const replyPreview = document.createElement('div');
-    replyPreview.style.cssText = 'background: rgba(0,0,0,0.2); border-left: 3px solid var(--accent); padding: 6px 10px; margin: 6px 0; border-radius: 4px; font-size: 12px; cursor: pointer;';
-    replyPreview.innerHTML = `<strong>Replying to:</strong> ${escapeHtml((message.reply_text || '').substring(0, 50))}...`;
-    replyPreview.onclick = () => scrollToMessage(message.reply_to);
-    contentWrapper.appendChild(replyPreview);
-  }
-  
-  const content = document.createElement('div');
-  content.className = 'message-content';
-  
-  if (message.message_type === 'image' && message.file_url) {
-    content.innerHTML = `
-      ${formatText(message.content)}<br>
-      <img src="${message.file_url}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
-    `;
-  } else if (message.message_type === 'gif' && message.file_url) {
-    content.innerHTML = `
-      ${formatText(message.content)}<br>
-      <img src="${message.file_url}" data-gif="true" style="max-width: 300px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" onclick="openImageModal('${message.file_url}')">
-    `;
-  } else if (message.message_type === 'video' && message.file_url) {
-    content.innerHTML = `
-      ${formatText(message.content)}<br>
-      <video controls style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px;">
-        <source src="${message.file_url}">
-      </video>
-    `;
-  } else if (message.message_type === 'file' && message.file_url) {
-    content.innerHTML = `
-      ${formatText(message.content)}<br>
-      <a href="${message.file_url}" target="_blank" style="color: var(--accent);">📎 ${escapeHtml(message.file_name || 'Download File')}</a>
-    `;
-  } else {
-    let messageText = formatText(message.content);
-    
-    // Apply personal filters if function exists
-    if (typeof applyPersonalFilters === 'function') {
-      messageText = applyPersonalFilters(messageText);
-    }
-    
-    content.innerHTML = messageText;
-  }
-  
-  const actions = document.createElement('div');
-  actions.style.cssText = 'position: absolute; top: 0; right: 0; display: none; gap: 4px; background: var(--bg-secondary); padding: 4px; border-radius: 4px;';
-  actions.innerHTML = `
-    <button onclick="setReply(${message.id}, '${escapeHtml(message.username)}', '${escapeHtml(message.content.substring(0, 50))}')" style="background: none; border: none; cursor: pointer; font-size: 16px;">↩️</button>
-    ${message.user_id === (currentUser ? currentUser.id : 0) ? `<button onclick="editMessage(${message.id}, '${escapeHtml(message.content)}')" style="background: none; border: none; cursor: pointer; font-size: 16px;">✏️</button>` : ''}
-  `;
-  
-  msgDiv.addEventListener('mouseenter', () => actions.style.display = 'flex');
-  msgDiv.addEventListener('mouseleave', () => actions.style.display = 'none');
-  
-  contentWrapper.appendChild(header);
-  contentWrapper.appendChild(content);
-  contentWrapper.appendChild(actions);
-  
-  msgDiv.appendChild(avatar);
-  msgDiv.appendChild(contentWrapper);
-  
-  container.appendChild(msgDiv);
-  
-  // Add right-click context menu for admins
-  if (currentUser.role === 'admin' && message.user_id !== currentUser.id) {
-    msgDiv.addEventListener('contextmenu', (e) => {
-      if (typeof showModerateUserMenu === 'function') {
-        showModerateUserMenu(message.user_id, message.username, e);
-      }
-    });
-    msgDiv.style.cursor = 'context-menu';
-  }
-  
-  // Add admin delete button if user is admin
-  if (currentUser.role === 'admin' && typeof addAdminDeleteButton === 'function') {
-    addAdminDeleteButton(msgDiv, message.id, message.user_id);
-  }
-}
-
-function setReply(messageId, username, text) {
-  currentReplyTo = { id: messageId, username, text };
-  
-  const replyBar = document.getElementById('replyBar');
-  const replyToUser = document.getElementById('replyToUser');
-  const replyToText = document.getElementById('replyToText');
-  
-  if (replyBar && replyToUser && replyToText) {
-    replyToUser.textContent = username;
-    replyToText.textContent = text;
-    replyBar.style.display = 'flex';
-  }
-  
-  document.getElementById('messageInput')?.focus();
-}
-
-function cancelReply() {
-  currentReplyTo = null;
-  const replyBar = document.getElementById('replyBar');
-  if (replyBar) replyBar.style.display = 'none';
-}
-
-function editMessage(messageId, content) {
-  currentEditMessage = { id: messageId, content };
-  
-  const input = document.getElementById('messageInput');
-  const editBar = document.getElementById('editBar');
-  
-  if (input && editBar) {
-    input.value = content;
-    editBar.style.display = 'flex';
-    input.focus();
-  }
-}
-
-function cancelEdit() {
-  currentEditMessage = null;
-  const input = document.getElementById('messageInput');
-  const editBar = document.getElementById('editBar');
-  
-  if (input) input.value = '';
-  if (editBar) editBar.style.display = 'none';
-}
-
-function scrollToMessage(messageId) {
-  const msgEl = document.getElementById(`msg-${messageId}`);
-  if (msgEl) {
-    msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    msgEl.style.background = 'rgba(88, 101, 242, 0.3)';
-    setTimeout(() => msgEl.style.background = '', 2000);
-  }
-}
-
-async function sendMessage() {
-  const input = document.getElementById('messageInput');
-  if (!input) return;
-  
-  const content = input.value.trim();
-  const pendingFile = window.pendingFile;
-  
-  if (!content && !pendingFile) return;
-  
-  if (!currentRoom && !currentDM) {
-    if (typeof showToast === 'function') {
-      showToast('Please select a room or DM first', 'warning');
-    }
-    return;
-  }
-  
-  // Check if announcement room and user is not admin
-  if (currentRoom && currentRoom.is_announcement && currentUser.role !== 'admin') {
-    if (typeof showToast === 'function') {
-      showToast('Only admins can post in announcements', 'error');
-    }
-    return;
-  }
-  
-  // MODERATION FILTERS
-  if (content && typeof filterMessage === 'function') {
-    const filterResult = await filterMessage(content, currentUser.id);
-    
-    // Show confirmation for sensitive data
-    if (filterResult.needsConfirm) {
-      showConfirmSensitiveModal(filterResult.confirmMessage, () => {
-        actualSendMessage(filterResult.censored);
-      });
-      return;
-    }
-    
-    // Block if not allowed
-    if (!filterResult.allowed) {
-      if (typeof showToast === 'function') {
-        showToast(`Message blocked: ${filterResult.reason.replace(/_/g, ' ')}`, 'warning');
-      }
-      input.value = '';
-      updateCharCounter('');
-      return;
-    }
-    
-    // Use censored version if content was modified
-    if (filterResult.censored !== content) {
-      actualSendMessage(filterResult.censored);
-      return;
-    }
-  }
-  
-  // Check if user is banned
-  if (typeof checkUserBanned === 'function') {
-    const banned = await checkUserBanned(currentUser.id);
-    if (banned) {
-      if (typeof showToast === 'function') {
-        showToast('You are banned from sending messages', 'error');
-      }
-      return;
-    }
-  }
-  
-  // Check if user is timed out
-  const roomId = currentRoom ? currentRoom.id : (currentDM ? currentDM.id : null);
-  if (roomId && typeof checkUserTimedOut === 'function') {
-    const timedOut = await checkUserTimedOut(currentUser.id, roomId);
-    if (timedOut) {
-      const timeLeft = Math.max(0, new Date(timedOut.expires_at) - new Date());
-      if (typeof showToast === 'function' && typeof formatDuration === 'function') {
-        showToast(`You are timed out for ${formatDuration(timeLeft)}`, 'error');
-      }
-      return;
-    }
-  }
-  
-  // Continue with normal send
-  actualSendMessage(content);
-}
-
-async function actualSendMessage(content) {
-  const input = document.getElementById('messageInput');
-  if (!input) return;
-  
-  const pendingFile = window.pendingFile;
-  const roomId = currentRoom ? currentRoom.id : currentDM.id;
-  
-  try {
-    const supabase = getSupabase();
-    
-    let fileUrl = null;
-    let fileName = null;
-    let messageType = 'text';
-    
-    // Handle file upload
-    if (pendingFile) {
-      fileUrl = await uploadFile(pendingFile);
-      if (!fileUrl) return;
-      
-      fileName = pendingFile.name;
-      
-      if (pendingFile.type.startsWith('image/')) {
-        messageType = 'image';
-      } else if (pendingFile.type.startsWith('video/')) {
-        messageType = 'video';
-      } else {
-        messageType = 'file';
-      }
-      
-      window.pendingFile = null;
-      cancelFile();
-    }
-    
-    // Handle editing
-    if (currentEditMessage) {
-      const { error } = await supabase
-        .from('messages')
-        .update({
-          content: content,
-          edited_at: new Date().toISOString()
-        })
-        .eq('id', currentEditMessage.id);
-      
-      if (error) throw error;
-      
-      const msgEl = document.getElementById(`msg-${currentEditMessage.id}`);
-      if (msgEl) {
-        const contentEl = msgEl.querySelector('.message-content');
-        if (contentEl) {
-          contentEl.innerHTML = formatText(content);
-        }
-      }
-      
-      input.value = '';
-      cancelEdit();
-      updateCharCounter('');
-      return;
-    }
-    
-    // Build message data
-    const messageData = {
-      room_id: roomId,
-      user_id: currentUser.id,
-      username: currentUser.username,
-      content: content || fileName || 'File',
-      message_type: messageType,
-      file_url: fileUrl,
-      file_name: fileName
     };
     
-    // Add reply data if replying
-    if (currentReplyTo) {
-      messageData.reply_to = currentReplyTo.id;
-      messageData.reply_text = currentReplyTo.text;
-    }
-    
-    // Send message
-    const { data, error } = await supabase
-      .from('messages')
-      .insert([messageData])
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Error sending message:', error);
-      if (typeof showToast === 'function') {
-        showToast('Failed to send message', 'error');
+    listEl.appendChild(userDiv);
+  });
+}
+
+function updateCurrentRoomOnlineCount() {
+  if (!currentRoom) return;
+  
+  let onlineCount = 0;
+  
+  if (currentRoom.members && Array.isArray(currentRoom.members)) {
+    currentRoom.members.forEach(memberId => {
+      if (onlineUsers[memberId]) {
+        onlineCount++;
       }
-      return;
+    });
+  }
+  
+  const onlineCountEl = document.getElementById('onlineCount');
+  if (onlineCountEl) {
+    onlineCountEl.textContent = `${onlineCount} online`;
+  }
+}
+
+function updateUserUI() {
+  const sidebarAvatar = document.getElementById('sidebarAvatar');
+  const sidebarUsername = document.getElementById('sidebarUsername');
+  
+  if (sidebarUsername) {
+    sidebarUsername.textContent = currentUser.username;
+  }
+  
+  if (sidebarAvatar) {
+    if (currentUser.avatar_url) {
+      sidebarAvatar.innerHTML = `<img src="${currentUser.avatar_url}">`;
+    } else {
+      sidebarAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
     }
-    
-    // Clear input and reset state
-    input.value = '';
-    input.style.height = 'auto';
-    updateCharCounter('');
-    cancelReply();
-    
-    // Add to UI
-    addMessageToUI(data);
-    
-    // Track reputation for message
-    if (typeof trackMessageSent === 'function') {
-      trackMessageSent(currentUser.id);
+  }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.classList.remove('active');
+    if (t.getAttribute('data-tab') === tab) {
+      t.classList.add('active');
     }
+  });
+  
+  document.querySelectorAll('.content-section').forEach(s => {
+    s.classList.remove('active');
+  });
+  
+  if (tab === 'rooms') {
+    document.getElementById('roomsSection').classList.add('active');
+  } else if (tab === 'dms') {
+    document.getElementById('dmsSection').classList.add('active');
+    loadDMs();
+  } else if (tab === 'friends') {
+    document.getElementById('friendsSection').classList.add('active');
+    loadFriends();
+  }
+}
+
+async function loadUsers() {
+  try {
+    const supabase = getSupabase();
     
-    // Scroll to bottom
-    const container = document.getElementById('messagesContainer');
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
+    const { data, error } = await supabase
+      .from('users')
+      .select('*');
+    
+    if (error) throw error;
+    
+    usersCache = {};
+    data.forEach(user => {
+      usersCache[user.id] = user;
+    });
+    
+    console.log('Loaded users:', data.length);
+  } catch (error) {
+    console.error('Error loading users:', error);
+  }
+}
+
+function getUser(userId) {
+  return usersCache[userId] || { id: userId, username: 'Unknown', display_name: 'Unknown' };
+}
+
+async function updatePresence() {
+  if (!currentUser) return;
+  
+  try {
+    const supabase = getSupabase();
+    
+    await supabase
+      .from('presence')
+      .upsert({
+        user_id: currentUser.id,
+        username: currentUser.username,
+        is_online: true,
+        last_seen: new Date().toISOString()
+      });
     
   } catch (error) {
-    console.error('Error sending message:', error);
-    if (typeof showToast === 'function') {
-      showToast('Failed to send message', 'error');
-    }
+    console.error('Error updating presence:', error);
   }
 }
 
-// Update character counter
-function updateCharCounter(text) {
-  const counter = document.getElementById('charCount');
-  if (!counter) return;
+function subscribeToRealtimeUpdates() {
+  const supabase = getSupabase();
   
-  const length = text.length;
+  console.log('Setting up realtime subscriptions...');
   
-  if (length > 1800) {
-    counter.textContent = `${length}/2000`;
-    counter.style.color = '#f04747';
-  } else if (length > 0) {
-    counter.textContent = `${length}/2000`;
-    counter.style.color = 'var(--text-tertiary)';
+  // Messages
+  supabase
+    .channel('public:messages')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      handleMessageInsert(payload.new);
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      handleMessageUpdate(payload.new);
+    })
+    .on('postgres_changes', {
+      event: 'DELETE',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      handleMessageDelete(payload.old);
+    })
+    .subscribe();
+  
+  // Presence
+  supabase
+    .channel('public:presence')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'presence'
+    }, () => {
+      loadOnlineUsers();
+    })
+    .subscribe();
+  
+  // Rooms
+  supabase
+    .channel('public:rooms')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'rooms'
+    }, () => {
+      loadRooms();
+    })
+    .subscribe();
+  
+  // Friendships
+  supabase
+    .channel('public:friendships')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'friendships'
+    }, () => {
+      loadFriends();
+    })
+    .subscribe();
+}
+
+function handleMessageInsert(message) {
+  if (currentRoom && message.room_id === currentRoom.id) {
+    addMessageToUI(message);
+  } else if (currentDM && message.room_id === currentDM.id) {
+    addMessageToUI(message);
   } else {
-    counter.textContent = '';
+    if (!unreadRooms[message.room_id]) {
+      unreadRooms[message.room_id] = 0;
+    }
+    unreadRooms[message.room_id]++;
+    updateRoomBadges();
   }
 }
 
-const messageInput = document.getElementById('messageInput');
-if (messageInput) {
-  messageInput.addEventListener('keydown', (e) => {
-    // Enter without Shift = Send message
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-    // Shift+Enter = New line (default textarea behavior)
-  });
-  
-  messageInput.addEventListener('input', (e) => {
-    updateCharCounter(e.target.value);
+function updateRoomBadges() {
+  document.querySelectorAll('.room-item').forEach(roomEl => {
+    const roomId = parseInt(roomEl.dataset.roomId);
+    const unreadCount = unreadRooms[roomId] || 0;
     
-    // Auto-resize textarea
-    e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+    let badge = roomEl.querySelector('.unread-badge');
+    
+    if (unreadCount > 0) {
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'unread-badge';
+        badge.style.cssText = 'position: absolute; top: 8px; right: 8px; background: #f23f43; color: white; border-radius: 10px; padding: 2px 6px; font-size: 11px; font-weight: 700;';
+        roomEl.style.position = 'relative';
+        roomEl.appendChild(badge);
+      }
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+    } else if (badge) {
+      badge.remove();
+    }
   });
+}
+
+function handleMessageUpdate(message) {
+  const msgEl = document.getElementById(`msg-${message.id}`);
+  if (msgEl) {
+    msgEl.remove();
+    addMessageToUI(message);
+  }
+}
+
+function handleMessageDelete(message) {
+  const msgEl = document.getElementById(`msg-${message.id}`);
+  if (msgEl) {
+    msgEl.remove();
+  }
+}
+
+function toggleUserMenu() {
+  const menu = document.getElementById('userMenu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', (e) => {
+  // Close user menu
+  if (!e.target.closest('.user-section')) {
+    document.getElementById('userMenu').style.display = 'none';
+  }
+  
+  // Close online users dropdown
+  if (!e.target.closest('.online-users')) {
+    const dropdown = document.getElementById('onlineUsersDropdown');
+    if (dropdown) {
+      dropdown.classList.remove('active');
+    }
+  }
+});
+
+function logout() {
+  if (!confirm('Are you sure you want to log out?')) return;
+  
+  const supabase = getSupabase();
+  supabase.from('presence')
+    .update({ is_online: false })
+    .eq('user_id', currentUser.id)
+    .then(() => {
+      localStorage.removeItem('rowchat-user');
+      location.reload();
+    });
 }
 
 function escapeHtml(text) {
@@ -606,52 +555,75 @@ function formatTime(timestamp) {
   return date.toLocaleDateString();
 }
 
-function openImageModal(url) {
-  const modal = document.getElementById('imageModal');
-  const img = document.getElementById('modalImage');
-  if (modal && img) {
-    img.src = url;
-    modal.classList.add('active');
-  }
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: var(--bg-secondary); color: var(--text-primary); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000;';
+  
+  if (type === 'success') toast.style.background = '#43b581';
+  if (type === 'error') toast.style.background = '#f04747';
+  if (type === 'warning') toast.style.background = '#faa61a';
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => toast.remove(), 3000);
 }
 
-function closeImageModal() {
-  const modal = document.getElementById('imageModal');
-  if (modal) {
-    modal.classList.remove('active');
-  }
+function toggleRoomInfo() {
+  const panel = document.getElementById('roomInfoPanel');
+  if (panel) panel.classList.toggle('active');
 }
 
-const fileInput = document.getElementById('fileInput');
-if (fileInput) {
-  fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    console.log('File selected:', file.name);
-    
-    const preview = document.getElementById('filePreview');
-    const previewBar = document.getElementById('filePreviewBar');
-    
-    if (preview && previewBar) {
-      preview.textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-      previewBar.style.display = 'flex';
+window.addEventListener('beforeunload', () => {
+  if (currentUser) {
+    const supabase = getSupabase();
+    supabase.from('presence')
+      .update({ is_online: false })
+      .eq('user_id', currentUser.id);
+  }
+});
+
+console.log('App.js loaded (FIXED)');
+// Initialize app with security checks
+async function initializeAppWithChecks() {
+  showLoading(true);
+  
+  try {
+    // Generate hardware fingerprint
+    if (typeof initHardwareFingerprint === 'function') {
+      const hwAllowed = await initHardwareFingerprint();
+      if (!hwAllowed) {
+        showLoading(false);
+        return; // Hardware banned
+      }
+      
+      // Save hardware ID for current user
+      if (currentUser && hardwareId) {
+        await saveHardwareId(currentUser.id, hardwareId);
+      }
     }
     
-    window.pendingFile = file;
-  });
-}
-
-function cancelFile() {
-  window.pendingFile = null;
-  const previewBar = document.getElementById('filePreviewBar');
-  if (previewBar) {
-    previewBar.style.display = 'none';
+    // Check if user is banned
+    if (typeof checkUserBan === 'function') {
+      const isBanned = await checkUserBan();
+      if (isBanned) {
+        showLoading(false);
+        return; // Show ban screen
+      }
+    }
+    
+    // Continue with normal initialization
+    await initializeApp();
+    
+    // Start timeout checking
+    if (typeof startTimeoutChecking === 'function') {
+      startTimeoutChecking();
+    }
+    
+  } catch (error) {
+    console.error('App initialization with checks error:', error);
+    showToast('Failed to initialize app', 'error');
+    showLoading(false);
   }
-  const fileInput = document.getElementById('fileInput');
-  if (fileInput) {
-    fileInput.value = '';
-  }
 }
-
-console.log('Chat.js loaded (with reply, mentions, edit)');
