@@ -357,15 +357,30 @@ function showSelfHarmResources() {
 
 // ==================== MANUAL MODERATION ACTIONS ====================
 
-async function banUser(userId, reason, duration = null) {
+async function banUser(userId, reason, duration = null, includeHardware = true) {
   try {
     const supabase = getSupabase();
+    
+    // Get user's hardware ID
+    let hardwareIdToBan = null;
+    if (includeHardware) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('hardware_id')
+        .eq('id', userId)
+        .single();
+      
+      if (userData && userData.hardware_id) {
+        hardwareIdToBan = userData.hardware_id;
+      }
+    }
     
     const banData = {
       user_id: userId,
       banned_by: currentUser.id,
       reason: reason,
-      ban_type: duration ? 'temporary' : 'permanent'
+      ban_type: includeHardware ? 'hardware' : 'account',
+      hardware_id: hardwareIdToBan
     };
     
     if (duration) {
@@ -375,9 +390,13 @@ async function banUser(userId, reason, duration = null) {
     const { error } = await supabase.from('bans').insert([banData]);
     if (error) throw error;
     
-    await logAudit('ban', currentUser.id, userId, null, reason, { duration });
+    await logAudit('ban', currentUser.id, userId, null, reason, { duration, hardware: includeHardware });
     
-    showToast(`User banned: ${reason}`, 'success');
+    const banTypeText = includeHardware ? 'Hardware ban' : 'Account ban';
+    showToast(`${banTypeText} applied: ${reason}`, 'success');
+    
+    // Force disconnect the user
+    await forceDisconnectUser(userId);
     
   } catch (error) {
     console.error('Error banning user:', error);
@@ -1378,3 +1397,51 @@ function formatFilterName(name) {
 }
 
 console.log('Moderation admin functions loaded');
+
+// Force disconnect user (kick them out)
+async function forceDisconnectUser(userId) {
+  try {
+    const supabase = getSupabase();
+    
+    // Update user's online status to offline
+    await supabase
+      .from('users')
+      .update({ 
+        is_online: false,
+        last_seen: new Date().toISOString()
+      })
+      .eq('id', userId);
+    
+    console.log('Forced disconnect for user:', userId);
+    
+  } catch (error) {
+    console.error('Error forcing disconnect:', error);
+  }
+}
+
+// Add contributor role badge display
+function getUserRoleBadge(user) {
+  if (!user) return '';
+  
+  const badges = [];
+  
+  // Admin badge
+  if (user.role === 'admin') {
+    badges.push('<span class="user-badge admin-badge" title="Administrator">👑 Admin</span>');
+  }
+  
+  // Custom role badges
+  if (user.custom_role) {
+    const roleColors = {
+      'Contributor': '#00d4aa',
+      'Tester': '#faa61a',
+      'Supporter': '#f04747',
+      'VIP': '#ffcb6b'
+    };
+    
+    const color = roleColors[user.custom_role] || '#5865f2';
+    badges.push(`<span class="user-badge custom-role-badge" style="background: ${color}20; color: ${color}; border: 1px solid ${color};" title="${user.custom_role}">✨ ${user.custom_role}</span>`);
+  }
+  
+  return badges.join(' ');
+}
