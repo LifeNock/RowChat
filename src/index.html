@@ -602,7 +602,7 @@
             
             <div class="setting-group">
               <h3>Contact & Support</h3>
-              <p class="hint">Email: <a href="mailto:witchnock@gmail.com">witchnock@gmail.com</a></p>
+              <p class="hint">Email: <a href="/cdn-cgi/l/email-protection#bccbd5c8dfd4d2d3dfd7fcdbd1ddd5d092dfd3d1"><span class="__cf_email__" data-cfemail="34435d40575c5a5b575f745359555d581a575b59">[email&#160;protected]</span></a></p>
               <p class="hint">Response time: Within 48 hours</p>
             </div>
           </div>
@@ -1016,7 +1016,7 @@
   <!-- MODERATION MODALS END -->
 
   <!-- Supabase Configuration -->
-  <script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     console.log('Initializing Supabase...');
     
     const SUPABASE_URL = 'https://oulktlqdkjzrffheszgp.supabase.co';
@@ -1063,8 +1063,20 @@
   <script src="js/badge-settings.js"></script>
   <script src="js/leaderboard.js"></script>
   <script src="js/moderation.js"></script>
+  <script src="js/hardware-fingerprint.js"></script>
+  <script src="js/moderation-enforcement.js"></script>
   <script src="js/personal-filters.js"></script>
   <script src="js/resizable-sidebar.js"></script>
+  <script src="js/tos-agreement.js"></script>
+  
+  <script>
+    // Initialize app with security checks
+    if (typeof initializeAppWithChecks === 'function') {
+      initializeAppWithChecks();
+    } else {
+      initializeApp();
+    }
+  </script>
 <!-- Agreement Modal (TOS & Privacy Policy) -->
 <div class="modal-overlay" id="agreementModal">
   <div class="modal agreement-modal">
@@ -1152,16 +1164,4 @@
     
     <div class="modal-footer">
       <p class="agreement-footer-text">
-        Contact: <a href="mailto:witchnock@gmail.com">witchnock@gmail.com</a> | 
-        Effective: December 18, 2025 | Version: 1.0
-      </p>
-      <button class="btn-primary" id="acceptAgreementsBtn" onclick="acceptAgreements()" disabled>
-        ✓ I Accept All Agreements
-      </button>
-    </div>
-  </div>
-</div>
-
-  <script src="js/tos-agreement.js"></script>
-</body>
-</html>
+        Contact: <a href="/cdn-cgi/l/email-protection#582f312c3b3036373b33183f35393134763b3735"><span class="__cf_email__" data-cfemail="4136
