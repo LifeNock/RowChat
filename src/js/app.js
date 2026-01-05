@@ -73,7 +73,16 @@ async function initializeApp() {
     }
     
     updateUserUI();
-    subscribeToRealtimeUpdates();
+    
+    // Delay realtime subscriptions until chat.js is loaded
+    setTimeout(() => {
+      if (typeof addMessageToUI === 'function') {
+        subscribeToRealtimeUpdates();
+      } else {
+        console.error('chat.js not loaded, retrying...');
+        setTimeout(() => subscribeToRealtimeUpdates(), 1000);
+      }
+    }, 500);
     
     // Show admin DMs section if user is admin
     if (currentUser.role === 'admin') {
@@ -447,6 +456,11 @@ function subscribeToRealtimeUpdates() {
 }
 
 function handleMessageInsert(message) {
+  if (typeof addMessageToUI !== 'function') {
+    console.error('addMessageToUI not loaded yet');
+    return;
+  }
+  
   if (currentRoom && message.room_id === currentRoom.id) {
     addMessageToUI(message);
   } else if (currentDM && message.room_id === currentDM.id) {
@@ -585,3 +599,45 @@ window.addEventListener('beforeunload', () => {
 });
 
 console.log('App.js loaded (FIXED)');
+// Initialize app with security checks
+async function initializeAppWithChecks() {
+  showLoading(true);
+  
+  try {
+    // Generate hardware fingerprint
+    if (typeof initHardwareFingerprint === 'function') {
+      const hwAllowed = await initHardwareFingerprint();
+      if (!hwAllowed) {
+        showLoading(false);
+        return; // Hardware banned
+      }
+      
+      // Save hardware ID for current user
+      if (currentUser && hardwareId) {
+        await saveHardwareId(currentUser.id, hardwareId);
+      }
+    }
+    
+    // Check if user is banned
+    if (typeof checkUserBan === 'function') {
+      const isBanned = await checkUserBan();
+      if (isBanned) {
+        showLoading(false);
+        return; // Show ban screen
+      }
+    }
+    
+    // Continue with normal initialization
+    await initializeApp();
+    
+    // Start timeout checking
+    if (typeof startTimeoutChecking === 'function') {
+      startTimeoutChecking();
+    }
+    
+  } catch (error) {
+    console.error('App initialization with checks error:', error);
+    showToast('Failed to initialize app', 'error');
+    showLoading(false);
+  }
+}
