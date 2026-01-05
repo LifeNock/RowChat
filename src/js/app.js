@@ -1,78 +1,71 @@
-// Get references from config.js
-const SUPABASE_URL = window.SUPABASE_URL;
-const SUPABASE_KEY = window.SUPABASE_KEY;
+// ROWCHAT - MAIN APPLICATION (FIXED)
 
 let currentUser = null;
 let currentRoom = null;
 let currentDM = null;
-let onlineUsers = {};
 let usersCache = {};
 let roomsCache = {};
+let onlineUsers = {};
 let unreadRooms = {};
-let unreadDMs = {};
 
-function showLoading(show) {
-  const loadingScreen = document.getElementById('loadingScreen');
-  if (loadingScreen) {
-    loadingScreen.style.display = show ? 'flex' : 'none';
-  }
+function getSupabase() {
+  return window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-// Check for existing session on page load
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize App
+document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, checking for existing session...');
   
-  const storedUser = localStorage.getItem('rowchat_user');
+  const storedUser = localStorage.getItem('rowchat-user');
   if (storedUser) {
     try {
       currentUser = JSON.parse(storedUser);
       console.log('Found stored user:', currentUser.username);
-      
-      document.getElementById('authScreen').style.display = 'none';
-      document.getElementById('app').style.display = 'flex';
-      
-      await initializeApp();
+      initializeApp();
     } catch (error) {
-      console.error('Error restoring session:', error);
-      localStorage.removeItem('rowchat_user');
-      showLoading(false);
+      console.error('Error parsing stored user:', error);
+      localStorage.removeItem('rowchat-user');
     }
   } else {
-    console.log('No stored session found');
-    document.getElementById('authScreen').style.display = 'flex';
+    console.log('No stored user found, showing auth screen');
     showLoading(false);
   }
 });
 
-function getSupabase() {
-  if (window.supabaseClient) {
-    return window.supabaseClient;
-  }
+function showLoading(show) {
+  const loadingScreen = document.getElementById('loadingScreen');
+  const authScreen = document.getElementById('authScreen');
+  const appContainer = document.getElementById('appContainer');
   
-  console.log('Initializing Supabase...');
-  window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  console.log('Supabase initialized successfully');
-  return window.supabaseClient;
+  if (show) {
+    loadingScreen.style.display = 'flex';
+    authScreen.style.display = 'none';
+    appContainer.style.display = 'none';
+  } else {
+    loadingScreen.style.display = 'none';
+    if (currentUser) {
+      authScreen.style.display = 'none';
+      appContainer.style.display = 'flex';
+    } else {
+      authScreen.style.display = 'flex';
+      appContainer.style.display = 'none';
+    }
+  }
 }
 
 async function initializeApp() {
   console.log('Initializing app for user:', currentUser.username);
+  showLoading(true);
   
   try {
     await loadUsers();
     await loadRooms();
     await loadFriends();
+    await updatePresence();
     await loadOnlineUsers();
     
-    // Load reputation system
-    if (typeof loadReputation === 'function') {
-      await loadReputation(currentUser.id);
-    }
-    
-    // Load gamification data
-    if (typeof loadGamificationData === 'function') {
-      await loadGamificationData();
-    }
+    // Load theme and font preferences
+    await loadUserPreferences();
     
     // Load personal word filters
     if (typeof loadPersonalFilters === 'function') {
@@ -80,11 +73,7 @@ async function initializeApp() {
     }
     
     updateUserUI();
-    
-    // Delay realtime subscriptions until chat.js is loaded
-    setTimeout(() => {
-      subscribeToRealtimeUpdates();
-    }, 500);
+    subscribeToRealtimeUpdates();
     
     // Show admin DMs section if user is admin
     if (currentUser.role === 'admin') {
@@ -116,26 +105,51 @@ async function initializeApp() {
   }
 }
 
-function updateUserUI() {
-  const userAvatar = document.getElementById('currentUserAvatar');
-  const userName = document.getElementById('currentUserName');
-  const userRole = document.getElementById('currentUserRole');
-  
-  if (userAvatar) {
-    if (currentUser.avatar_url) {
-      userAvatar.innerHTML = `<img src="${currentUser.avatar_url}" alt="${currentUser.username}">`;
-    } else {
-      userAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+// Load user preferences (theme and font)
+async function loadUserPreferences() {
+  try {
+    const supabase = getSupabase();
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('theme, font_family, role, status_message')
+      .eq('id', currentUser.id)
+      .single();
+    
+    if (error) throw error;
+    
+    // Update role
+    if (data.role) {
+      currentUser.role = data.role;
     }
-  }
-  
-  if (userName) {
-    userName.textContent = currentUser.username;
-  }
-  
-  if (userRole) {
+    
+    // Update status
+    if (data.status_message) {
+      currentUser.status_message = data.status_message;
+    }
+    
+    // Apply theme
+    if (data.theme && data.theme.preset) {
+      document.body.setAttribute('data-theme', data.theme.preset);
+      currentUser.theme = data.theme;
+    }
+    
+    // Apply font
+    if (data.font_family) {
+      const font = FONTS.find(f => f.name === data.font_family);
+      if (font) {
+        document.documentElement.style.setProperty('--font-family', font.value);
+        currentUser.font_family = data.font_family;
+      }
+    }
+    
+    // Update localStorage
+    localStorage.setItem('rowchat-user', JSON.stringify(currentUser));
+    
     console.log('User role:', currentUser.role);
-    userRole.textContent = currentUser.role === 'admin' ? '👑 Admin' : '';
+    
+  } catch (error) {
+    console.error('Error loading user preferences:', error);
   }
 }
 
@@ -143,25 +157,30 @@ async function loadOnlineUsers() {
   try {
     const supabase = getSupabase();
     
+    // Get users online in last 60 seconds
+    const cutoff = new Date(Date.now() - 60000).toISOString();
+    
     const { data, error } = await supabase
-      .from('users')
-      .select('id, username, avatar_url, is_online, last_seen')
-      .eq('is_online', true);
+      .from('presence')
+      .select('*')
+      .eq('is_online', true)
+      .gte('last_seen', cutoff);
     
     if (error) throw error;
     
     onlineUsers = {};
-    data.forEach(user => {
-      onlineUsers[user.id] = user;
+    data.forEach(presence => {
+      onlineUsers[presence.user_id] = presence;
     });
     
-    console.log('Online users:', data.length);
+    console.log('Online users:', Object.keys(onlineUsers).length);
     
-    updateOnlineUsersUI();
+    // Update online count display
+    updateOnlineCountDisplay();
     
-    // Update online counts in rooms
-    if (typeof updateAllRoomOnlineCounts === 'function') {
-      updateAllRoomOnlineCounts();
+    // Update room online counts
+    if (currentRoom) {
+      updateCurrentRoomOnlineCount();
     }
     
   } catch (error) {
@@ -169,39 +188,149 @@ async function loadOnlineUsers() {
   }
 }
 
-function updateOnlineUsersUI() {
-  const container = document.getElementById('onlineUsersList');
-  if (!container) return;
+function updateOnlineCountDisplay() {
+  const onlineCountEl = document.getElementById('onlineCount');
+  if (onlineCountEl) {
+    const count = Object.keys(onlineUsers).length;
+    onlineCountEl.textContent = `${count} online`;
+  }
   
-  const onlineUsersArray = Object.values(onlineUsers);
+  // Update dropdown list if it's open
+  const dropdown = document.getElementById('onlineUsersDropdown');
+  if (dropdown && dropdown.classList.contains('active')) {
+    renderOnlineUsersList();
+  }
+}
+
+function toggleOnlineUsersDropdown() {
+  const dropdown = document.getElementById('onlineUsersDropdown');
+  if (!dropdown) return;
   
-  container.innerHTML = '';
+  dropdown.classList.toggle('active');
   
-  if (onlineUsersArray.length === 0) {
-    container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-tertiary);">No one online</div>';
+  if (dropdown.classList.contains('active')) {
+    renderOnlineUsersList();
+  }
+}
+
+function renderOnlineUsersList() {
+  const listEl = document.getElementById('onlineUsersList');
+  if (!listEl) return;
+  
+  listEl.innerHTML = '';
+  
+  const onlineUserIds = Object.keys(onlineUsers);
+  
+  if (onlineUserIds.length === 0) {
+    listEl.innerHTML = '<div class="online-users-empty">No users online</div>';
     return;
   }
   
-  onlineUsersArray.forEach(user => {
+  // Sort by username
+  const sortedUsers = onlineUserIds
+    .map(id => getUser(parseInt(id)))
+    .filter(user => user && user.username !== 'Unknown')
+    .sort((a, b) => a.username.localeCompare(b.username));
+  
+  sortedUsers.forEach(user => {
     const userDiv = document.createElement('div');
     userDiv.className = 'online-user-item';
     
-    const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=random`;
+    const avatar = document.createElement('div');
+    avatar.className = 'online-user-avatar';
+    if (user.avatar_url) {
+      avatar.innerHTML = `<img src="${user.avatar_url}" alt="${user.username}">`;
+    } else {
+      avatar.textContent = user.username.charAt(0).toUpperCase();
+    }
     
-    userDiv.innerHTML = `
-      <img src="${avatarUrl}" alt="${user.username}" class="online-user-avatar">
-      <span class="online-user-name">${user.username}</span>
-      <span class="online-indicator"></span>
-    `;
+    const info = document.createElement('div');
+    info.className = 'online-user-info';
     
-    userDiv.onclick = () => {
-      if (user.id !== currentUser.id && typeof openDM === 'function') {
-        openDM(user.id, user.username);
+    const name = document.createElement('div');
+    name.className = 'online-user-name';
+    name.textContent = user.username;
+    
+    const status = document.createElement('div');
+    status.className = 'online-user-status';
+    status.textContent = user.status_message || 'Online';
+    
+    info.appendChild(name);
+    info.appendChild(status);
+    
+    userDiv.appendChild(avatar);
+    userDiv.appendChild(info);
+    
+    // Click to view profile
+    userDiv.onclick = (e) => {
+      e.stopPropagation();
+      if (user.id !== currentUser.id && typeof openProfileView === 'function') {
+        openProfileView(user.id);
+        document.getElementById('onlineUsersDropdown').classList.remove('active');
       }
     };
     
-    container.appendChild(userDiv);
+    listEl.appendChild(userDiv);
   });
+}
+
+function updateCurrentRoomOnlineCount() {
+  if (!currentRoom) return;
+  
+  let onlineCount = 0;
+  
+  if (currentRoom.members && Array.isArray(currentRoom.members)) {
+    currentRoom.members.forEach(memberId => {
+      if (onlineUsers[memberId]) {
+        onlineCount++;
+      }
+    });
+  }
+  
+  const onlineCountEl = document.getElementById('onlineCount');
+  if (onlineCountEl) {
+    onlineCountEl.textContent = `${onlineCount} online`;
+  }
+}
+
+function updateUserUI() {
+  const sidebarAvatar = document.getElementById('sidebarAvatar');
+  const sidebarUsername = document.getElementById('sidebarUsername');
+  
+  if (sidebarUsername) {
+    sidebarUsername.textContent = currentUser.username;
+  }
+  
+  if (sidebarAvatar) {
+    if (currentUser.avatar_url) {
+      sidebarAvatar.innerHTML = `<img src="${currentUser.avatar_url}">`;
+    } else {
+      sidebarAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+    }
+  }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.classList.remove('active');
+    if (t.getAttribute('data-tab') === tab) {
+      t.classList.add('active');
+    }
+  });
+  
+  document.querySelectorAll('.content-section').forEach(s => {
+    s.classList.remove('active');
+  });
+  
+  if (tab === 'rooms') {
+    document.getElementById('roomsSection').classList.add('active');
+  } else if (tab === 'dms') {
+    document.getElementById('dmsSection').classList.add('active');
+    loadDMs();
+  } else if (tab === 'friends') {
+    document.getElementById('friendsSection').classList.add('active');
+    loadFriends();
+  }
 }
 
 async function loadUsers() {
@@ -236,12 +365,13 @@ async function updatePresence() {
     const supabase = getSupabase();
     
     await supabase
-      .from('users')
-      .update({
+      .from('presence')
+      .upsert({
+        user_id: currentUser.id,
+        username: currentUser.username,
         is_online: true,
         last_seen: new Date().toISOString()
-      })
-      .eq('id', currentUser.id);
+      });
     
   } catch (error) {
     console.error('Error updating presence:', error);
@@ -260,48 +390,63 @@ function subscribeToRealtimeUpdates() {
       event: 'INSERT',
       schema: 'public',
       table: 'messages'
-    }, payload => {
+    }, (payload) => {
       handleMessageInsert(payload.new);
     })
-    .subscribe();
-  
-  // Online status
-  supabase
-    .channel('public:users')
     .on('postgres_changes', {
       event: 'UPDATE',
       schema: 'public',
-      table: 'users'
-    }, payload => {
-      const user = payload.new;
-      if (user.is_online) {
-        onlineUsers[user.id] = user;
-      } else {
-        delete onlineUsers[user.id];
-      }
-      updateOnlineUsersUI();
+      table: 'messages'
+    }, (payload) => {
+      handleMessageUpdate(payload.new);
+    })
+    .on('postgres_changes', {
+      event: 'DELETE',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      handleMessageDelete(payload.old);
     })
     .subscribe();
   
-  // DMs
+  // Presence
   supabase
-    .channel('public:direct_messages')
+    .channel('public:presence')
     .on('postgres_changes', {
-      event: 'INSERT',
+      event: '*',
       schema: 'public',
-      table: 'direct_messages'
-    }, payload => {
-      handleDMInsert(payload.new);
+      table: 'presence'
+    }, () => {
+      loadOnlineUsers();
+    })
+    .subscribe();
+  
+  // Rooms
+  supabase
+    .channel('public:rooms')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'rooms'
+    }, () => {
+      loadRooms();
+    })
+    .subscribe();
+  
+  // Friendships
+  supabase
+    .channel('public:friendships')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'friendships'
+    }, () => {
+      loadFriends();
     })
     .subscribe();
 }
 
 function handleMessageInsert(message) {
-  if (typeof addMessageToUI !== 'function') {
-    console.error('addMessageToUI not loaded yet');
-    return;
-  }
-  
   if (currentRoom && message.room_id === currentRoom.id) {
     addMessageToUI(message);
   } else if (currentDM && message.room_id === currentDM.id) {
@@ -315,63 +460,99 @@ function handleMessageInsert(message) {
   }
 }
 
-function handleDMInsert(dm) {
-  if (typeof addMessageToUI !== 'function') {
-    return;
+function updateRoomBadges() {
+  document.querySelectorAll('.room-item').forEach(roomEl => {
+    const roomId = parseInt(roomEl.dataset.roomId);
+    const unreadCount = unreadRooms[roomId] || 0;
+    
+    let badge = roomEl.querySelector('.unread-badge');
+    
+    if (unreadCount > 0) {
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'unread-badge';
+        badge.style.cssText = 'position: absolute; top: 8px; right: 8px; background: #f23f43; color: white; border-radius: 10px; padding: 2px 6px; font-size: 11px; font-weight: 700;';
+        roomEl.style.position = 'relative';
+        roomEl.appendChild(badge);
+      }
+      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+    } else if (badge) {
+      badge.remove();
+    }
+  });
+}
+
+function handleMessageUpdate(message) {
+  const msgEl = document.getElementById(`msg-${message.id}`);
+  if (msgEl) {
+    msgEl.remove();
+    addMessageToUI(message);
+  }
+}
+
+function handleMessageDelete(message) {
+  const msgEl = document.getElementById(`msg-${message.id}`);
+  if (msgEl) {
+    msgEl.remove();
+  }
+}
+
+function toggleUserMenu() {
+  const menu = document.getElementById('userMenu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', (e) => {
+  // Close user menu
+  if (!e.target.closest('.user-section')) {
+    document.getElementById('userMenu').style.display = 'none';
   }
   
-  if (currentDM && dm.room_id === currentDM.id) {
-    addMessageToUI(dm);
-  } else {
-    if (!unreadDMs[dm.room_id]) {
-      unreadDMs[dm.room_id] = 0;
+  // Close online users dropdown
+  if (!e.target.closest('.online-users')) {
+    const dropdown = document.getElementById('onlineUsersDropdown');
+    if (dropdown) {
+      dropdown.classList.remove('active');
     }
-    unreadDMs[dm.room_id]++;
-    updateDMBadges();
   }
-}
-
-function updateRoomBadges() {
-  Object.keys(unreadRooms).forEach(roomId => {
-    const roomItem = document.querySelector(`.room-item[data-room-id="${roomId}"]`);
-    if (roomItem && unreadRooms[roomId] > 0) {
-      let badge = roomItem.querySelector('.unread-badge');
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.className = 'unread-badge';
-        roomItem.appendChild(badge);
-      }
-      badge.textContent = unreadRooms[roomId];
-    }
-  });
-}
-
-function updateDMBadges() {
-  Object.keys(unreadDMs).forEach(dmId => {
-    const dmItem = document.querySelector(`.dm-item[data-dm-id="${dmId}"]`);
-    if (dmItem && unreadDMs[dmId] > 0) {
-      let badge = dmItem.querySelector('.unread-badge');
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.className = 'unread-badge';
-        dmItem.appendChild(badge);
-      }
-      badge.textContent = unreadDMs[dmId];
-    }
-  });
-}
+});
 
 function logout() {
-  if (currentUser) {
-    const supabase = getSupabase();
-    supabase.from('users')
-      .update({ is_online: false })
-      .eq('id', currentUser.id);
-  }
+  if (!confirm('Are you sure you want to log out?')) return;
   
-  localStorage.removeItem('rowchat_user');
-  currentUser = null;
-  window.location.reload();
+  const supabase = getSupabase();
+  supabase.from('presence')
+    .update({ is_online: false })
+    .eq('user_id', currentUser.id)
+    .then(() => {
+      localStorage.removeItem('rowchat-user');
+      location.reload();
+    });
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now - date;
+  
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+  
+  return date.toLocaleDateString();
 }
 
 function showToast(message, type = 'info') {
@@ -397,10 +578,10 @@ function toggleRoomInfo() {
 window.addEventListener('beforeunload', () => {
   if (currentUser) {
     const supabase = getSupabase();
-    supabase.from('users')
+    supabase.from('presence')
       .update({ is_online: false })
-      .eq('id', currentUser.id);
+      .eq('user_id', currentUser.id);
   }
 });
 
-console.log('App.js loaded (REVERTED - NO HARDWARE BANS)');
+console.log('App.js loaded (FIXED)');
