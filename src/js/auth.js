@@ -170,23 +170,7 @@ async function register() {
     currentUser = data;
     localStorage.setItem('rowchat-user', JSON.stringify(data));
     
-    console.log('User created successfully! Auto-joining general room...');
-    
-    // Auto-join general room
-    try {
-      await supabase
-        .from('room_members')
-        .insert([{
-          room_id: 1,
-          user_id: currentUser.id,
-          role: 'member'
-        }]);
-      console.log('Joined general room');
-    } catch (roomError) {
-      console.error('Failed to join general room:', roomError);
-      // Don't fail registration if room join fails
-    }
-    
+    console.log('User created successfully!');
     console.log('Registration complete! Initializing app...');
     await initializeApp();
   } catch (error) {
