@@ -137,7 +137,7 @@ function openCreateRoomModal() {
   // Reset form
   document.getElementById('roomName').value = '';
   document.getElementById('roomDescription').value = '';
-  document.getElementById('roomType').value = 'general';
+  document.getElementById('roomType').value = 'study_group';
   document.getElementById('roomPrivacy').value = 'public';
   
   selectedInvitedUsers = [];
@@ -322,9 +322,6 @@ async function createRoomEnhanced() {
 
 function showDeleteRoomOption() {
   if (!currentRoom) return;
-  
-  // Don't show for announcement rooms
-  if (currentRoom.is_announcement) return;
   
   const isAdmin = currentUser.role === 'admin';
   const isRoomMaster = currentRoom.room_master_id === currentUser.id || currentRoom.created_by === currentUser.id;
